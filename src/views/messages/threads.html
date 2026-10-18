@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Messages - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h2 class="mb-0">
+    <i class="bi bi-envelope"></i> Messages
+  </h2>
+  <p class="text-muted">View and manage your conversations</p>
+</div>
+
+{% if thread_data %}
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <ul class="list-group list-group-flush">
+      {% for data in thread_data %}
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center mb-2">
+              <h6 class="mb-0 me-2">
+                <a href="{{ url_for('messages.thread', thread_id=data.thread.id) }}" class="text-decoration-none">
+                  {{ data.other_user.name }}
+                </a>
+              </h6>
+              {% if data.unread_count > 0 %}
+              <span class="badge bg-danger rounded-pill">{{ data.unread_count }}</span>
+              {% endif %}
+            </div>
+            {% if data.last_message %}
+            <p class="text-muted small mb-1">
+              {{ data.last_message.body[:100] }}{% if data.last_message.body|length > 100 %}...{% endif %}
+            </p>
+            <small class="text-muted" data-utc-time="{{ data.last_message.created_at.isoformat() }}">
+              {{ data.last_message.created_at.strftime('%b %d, %Y %I:%M %p') }}
+            </small>
+            {% else %}
+            <p class="text-muted small mb-0">No messages yet</p>
+            {% endif %}
+          </div>
+          <a href="{{ url_for('messages.thread', thread_id=data.thread.id) }}" class="btn btn-outline-primary btn-sm">
+            Open
+          </a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-inbox display-1 text-muted"></i>
+    <h4 class="mt-3">No messages yet</h4>
+    <p class="text-muted">Start a conversation by messaging a resource owner or someone who booked your resource.</p>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  // Convert UTC timestamps to local time
+  document.addEventListener('DOMContentLoaded', function() {
+    const timeElements = document.querySelectorAll('[data-utc-time]');
+    timeElements.forEach(function(el) {
+      const utcTime = el.getAttribute('data-utc-time');
+      if (utcTime) {
+        const date = new Date(utcTime);
+        const localTime = date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        el.textContent = localTime;
+      }
+    });
+  });
+</script>
+{% endblock %}

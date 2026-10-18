@@ -1,0 +1,642 @@
+{% extends 'base.html' %}
+{% block title %}Book {{ resource.title }} - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 class="mb-2">
+              <i class="bi bi-calendar-check"></i> Book: {{ resource.title }}
+            </h2>
+            <p class="text-muted mb-0">
+              <i class="bi bi-geo-alt"></i> {{ resource.location or 'Not specified' }} • 
+              <i class="bi bi-people"></i> Capacity: {{ resource.capacity }}
+              {% if resource.opening_time and resource.closing_time %}
+              • <i class="bi bi-clock"></i> Available: {{ resource.opening_time.strftime('%I:%M %p') }} - {{ resource.closing_time.strftime('%I:%M %p') }}
+              {% endif %}
+            </p>
+          </div>
+          <a href="{{ url_for('bookings.new_booking', resource_id=resource.id, view='form') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-clock-history"></i> Use Form View
+          </a>
+        </div>
+
+        <!-- Selected Time Display -->
+        <div id="selected-time-display" class="alert alert-primary mb-4" style="display: none;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong><i class="bi bi-calendar-event"></i> Selected Time:</strong> 
+              <span id="selected-time-text" class="ms-2"></span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+              <i class="bi bi-x"></i> Clear
+            </button>
+          </div>
+        </div>
+        
+        <!-- Info about waitlist -->
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle"></i> 
+          <strong>Tip:</strong> You can select booked time slots (shown in red) to join the waitlist. If the current booking is cancelled, you'll automatically be notified and approved for that time slot.
+        </div>
+
+        <!-- Week Navigation -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <button class="btn btn-outline-primary" onclick="changeWeek(-1)">
+            <i class="bi bi-chevron-left"></i> Previous Week
+          </button>
+          <h4 class="mb-0" id="week-display">Week of {{ current_week_start.strftime('%B %d, %Y') }}</h4>
+          <button class="btn btn-outline-primary" onclick="changeWeek(1)">
+            Next Week <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+          <table class="table table-bordered calendar-table mb-0" id="booking-calendar">
+            <thead class="sticky-top">
+              <tr>
+                <th style="width: 100px; background-color: #990000; color: white;" class="text-center">Time</th>
+                {% for day in days_of_week %}
+                <th class="text-center" style="background-color: #990000; color: white; min-width: 120px;">
+                  <div class="fw-bold">{{ day['name'] }}</div>
+                  <small>{{ day['date'] }}</small>
+                </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for hour in hours %}
+              <tr data-hour="{{ hour }}">
+                <td class="text-center fw-bold time-label" style="background-color: #f8f9fa; position: sticky; left: 0; z-index: 5; border-right: 2px solid #990000; vertical-align: middle;">
+                  {% if hour < 12 %}
+                  {{ hour }}:00 AM
+                  {% elif hour == 12 %}
+                  12:00 PM
+                  {% else %}
+                  {{ hour - 12 }}:00 PM
+                  {% endif %}
+                </td>
+                {% for day in days_of_week %}
+                <td class="time-slot-cell" 
+                    data-date="{{ day['iso'] }}" 
+                    data-hour="{{ hour }}"
+                    style="padding: 0; height: 60px; position: relative; min-width: 120px;">
+                  <div class="time-slot" style="height: 60px; position: relative;">
+                    <div class="time-block" 
+                         data-minute="0"
+                         data-datetime="{{ day['iso'] }}T{{ "%02d"|format(hour) }}:00:00"
+                         style="height: 15px; border-bottom: 1px solid #dee2e6; position: relative;"></div>
+                    <div class="time-block" 
+                         data-minute="15"
+                         data-datetime="{{ day['iso'] }}T{{ "%02d"|format(hour) }}:15:00"
+                         style="height: 15px; border-bottom: 1px solid #dee2e6; position: relative;"></div>
+                    <div class="time-block" 
+                         data-minute="30"
+                         data-datetime="{{ day['iso'] }}T{{ "%02d"|format(hour) }}:30:00"
+                         style="height: 15px; border-bottom: 1px solid #dee2e6; position: relative;"></div>
+                    <div class="time-block" 
+                         data-minute="45"
+                         data-datetime="{{ day['iso'] }}T{{ "%02d"|format(hour) }}:45:00"
+                         style="height: 15px; position: relative;"></div>
+                  </div>
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Booking Form -->
+        <form method="post" id="booking-form" class="mt-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="view" value="calendar"/>
+          <input type="hidden" name="start" id="booking-start"/>
+          <input type="hidden" name="end" id="booking-end"/>
+          
+          <div class="mb-3">
+            <label class="form-label" for="recurrence">
+              <i class="bi bi-arrow-repeat"></i> Recurrence (Optional)
+            </label>
+            <select id="recurrence" name="recurrence" class="form-select">
+              <option value="">None - Single booking</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+
+          {% if resource.booking_type == 'open' %}
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> 
+            <strong>Open Resource:</strong> Your booking will be automatically approved and confirmed immediately.
+          </div>
+          {% else %}
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> 
+            <strong>Restricted Resource:</strong> Your booking request will be pending until approved by the resource owner.
+          </div>
+          {% endif %}
+
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('resources.detail', resource_id=resource.id) }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary btn-lg" type="submit" id="submit-booking" disabled>
+              <i class="bi bi-calendar-check"></i> 
+              {% if resource.booking_type == 'open' %}
+              Confirm Booking
+              {% else %}
+              Request Booking
+              {% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Calendar configuration
+const bookedSlots = {{ booked_slots|tojson }};
+{% if resource.opening_time %}
+const resourceOpeningHour = {{ resource.opening_time.hour }};
+const resourceOpeningMinute = {{ resource.opening_time.minute }};
+{% else %}
+const resourceOpeningHour = 7;
+const resourceOpeningMinute = 0;
+{% endif %}
+{% if resource.closing_time %}
+const resourceClosingHour = {{ resource.closing_time.hour }};
+const resourceClosingMinute = {{ resource.closing_time.minute }};
+{% else %}
+const resourceClosingHour = 23;
+const resourceClosingMinute = 59;
+{% endif %}
+const currentWeekStartDate = '{{ current_week_start.isoformat() }}';
+
+let selectedStartBlock = null;
+let selectedEndBlock = null;
+let isSelecting = false;
+let hoveredBlock = null;
+
+// Initialize calendar on page load
+document.addEventListener('DOMContentLoaded', function() {
+    markBookedSlots();
+    setupTimeBlockInteraction();
+    disableOutsideHours();
+});
+
+// Mark booked time slots
+function markBookedSlots() {
+    bookedSlots.forEach(function(booking) {
+        const start = new Date(booking.start);
+        const end = new Date(booking.end);
+        
+        // Iterate through all 15-minute intervals in the booking
+        const current = new Date(start);
+        while (current < end) {
+            markBlockAsBooked(current, booking.user_name);
+            // Move to next 15-minute interval
+            current.setMinutes(current.getMinutes() + 15);
+        }
+    });
+}
+
+// Mark a specific time block as booked
+function markBlockAsBooked(dateTime, userName) {
+    const dateStr = dateTime.toISOString().split('T')[0];
+    const hour = dateTime.getHours();
+    const minute = dateTime.getMinutes();
+    
+    const block = document.querySelector(
+        `.time-block[data-datetime="${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00"]`
+    );
+    
+    if (block) {
+        block.classList.add('booked');
+        block.style.backgroundColor = '#dc3545';
+        block.style.opacity = '0.7';
+        block.style.cursor = 'not-allowed';
+        block.title = `Booked: ${userName}`;
+    }
+}
+
+// Disable time blocks outside operating hours
+function disableOutsideHours() {
+    const allBlocks = document.querySelectorAll('.time-block');
+    allBlocks.forEach(function(block) {
+        const datetime = block.dataset.datetime;
+        const dateTime = new Date(datetime);
+        const hour = dateTime.getHours();
+        const minute = dateTime.getMinutes();
+        
+    // Check if outside operating hours (check if this 15-minute block is outside)
+    const blockStartMinute = parseInt(block.dataset.minute);
+    const isBeforeOpening = hour < resourceOpeningHour || 
+        (hour === resourceOpeningHour && blockStartMinute < resourceOpeningMinute);
+    const isAfterClosing = hour > resourceClosingHour || 
+        (hour === resourceClosingHour && blockStartMinute >= resourceClosingMinute);
+        
+        if (isBeforeOpening || isAfterClosing) {
+            block.classList.add('disabled');
+            block.style.backgroundColor = '#f8f9fa';
+            block.style.opacity = '0.4';
+            block.style.cursor = 'not-allowed';
+        }
+    });
+}
+
+// Setup interactive time block selection
+function setupTimeBlockInteraction() {
+    // Allow selection of all blocks except disabled ones (including booked blocks)
+    const allBlocks = document.querySelectorAll('.time-block:not(.disabled)');
+    
+    allBlocks.forEach(function(block) {
+        // Mouse down - start selection
+        block.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            if (!block.classList.contains('disabled')) {
+                startSelection(block);
+            }
+        });
+        
+        // Mouse enter - extend selection while dragging
+        block.addEventListener('mouseenter', function(e) {
+            hoveredBlock = block;
+            if (isSelecting && !block.classList.contains('disabled')) {
+                extendSelection(block);
+            }
+        });
+        
+        // Mouse leave
+        block.addEventListener('mouseleave', function() {
+            hoveredBlock = null;
+        });
+    });
+    
+    // Mouse up - end selection
+    document.addEventListener('mouseup', function() {
+        if (isSelecting) {
+            endSelection();
+        }
+    });
+    
+    // Prevent text selection while dragging
+    document.addEventListener('selectstart', function(e) {
+        if (isSelecting) {
+            e.preventDefault();
+        }
+    });
+}
+
+function startSelection(block) {
+    isSelecting = true;
+    selectedStartBlock = block;
+    selectedEndBlock = block;
+    updateVisualSelection();
+}
+
+function extendSelection(block) {
+    if (!isSelecting) return;
+    selectedEndBlock = block;
+    updateVisualSelection();
+}
+
+function endSelection() {
+    if (!isSelecting) return;
+    isSelecting = false;
+    
+    if (selectedStartBlock && selectedEndBlock) {
+        validateAndDisplaySelection();
+    }
+}
+
+function updateVisualSelection() {
+    // Clear previous selection highlights
+    document.querySelectorAll('.time-block.selected').forEach(function(block) {
+        block.classList.remove('selected');
+        // Restore original styling
+        if (block.classList.contains('booked')) {
+            block.style.backgroundColor = '#dc3545';
+            block.style.opacity = '0.7';
+        } else if (!block.classList.contains('disabled')) {
+            block.style.backgroundColor = '';
+            block.style.opacity = '';
+        }
+    });
+    
+    if (!selectedStartBlock || !selectedEndBlock) return;
+    
+    // Get datetime strings for start and end
+    let startDateTime = new Date(selectedStartBlock.dataset.datetime);
+    let endDateTime = new Date(selectedEndBlock.dataset.datetime);
+    
+    // Ensure start is before end (handle cross-day selections)
+    if (endDateTime < startDateTime) {
+        const temp = selectedStartBlock;
+        selectedStartBlock = selectedEndBlock;
+        selectedEndBlock = temp;
+        startDateTime = new Date(selectedStartBlock.dataset.datetime);
+        endDateTime = new Date(selectedEndBlock.dataset.datetime);
+    }
+    
+    // Add 15 minutes to end to include the selected end block
+    const actualEnd = new Date(endDateTime);
+    actualEnd.setMinutes(actualEnd.getMinutes() + 15);
+    
+    // Track if selection includes booked blocks
+    let hasBookedBlocks = false;
+    
+    // Highlight all blocks in the selection (handles cross-day) - including booked ones
+    const current = new Date(startDateTime);
+    while (current < actualEnd) {
+        // Use local date formatting instead of ISO to avoid timezone conversion issues
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const hour = current.getHours();
+        const minute = current.getMinutes();
+        
+        const block = document.querySelector(
+            `.time-block[data-datetime="${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00"]`
+        );
+        
+        if (block && !block.classList.contains('disabled')) {
+            block.classList.add('selected');
+            if (block.classList.contains('booked')) {
+                // Highlight booked blocks with a different color to show they can be selected for waitlist
+                block.style.backgroundColor = '#ff6b6b';
+                block.style.opacity = '0.8';
+                hasBookedBlocks = true;
+            } else {
+                block.style.backgroundColor = '#990000';
+                block.style.opacity = '0.6';
+            }
+        }
+        
+        // Move to next 15-minute interval
+        current.setMinutes(current.getMinutes() + 15);
+    }
+}
+
+function validateAndDisplaySelection() {
+    if (!selectedStartBlock || !selectedEndBlock) return;
+    
+    let startDateTime = new Date(selectedStartBlock.dataset.datetime);
+    let endDateTime = new Date(selectedEndBlock.dataset.datetime);
+    
+    // Ensure start is before end (handle cross-day selections)
+    if (endDateTime <= startDateTime) {
+        const temp = selectedStartBlock;
+        selectedStartBlock = selectedEndBlock;
+        selectedEndBlock = temp;
+        startDateTime = new Date(selectedStartBlock.dataset.datetime);
+        endDateTime = new Date(selectedEndBlock.dataset.datetime);
+    }
+    
+    // Add 15 minutes to end to include the selected end block
+    const actualEnd = new Date(endDateTime);
+    actualEnd.setMinutes(actualEnd.getMinutes() + 15);
+    
+    // Check minimum duration (30 minutes)
+    const durationMinutes = (actualEnd - startDateTime) / (1000 * 60);
+    if (durationMinutes < 30) {
+        alert('Minimum booking duration is 30 minutes. Please select a longer time slot.');
+        clearSelection();
+        return;
+    }
+    
+    // Check if selection includes any booked blocks (for waitlist indication)
+    const current = new Date(startDateTime);
+    let hasConflict = false;
+    while (current < actualEnd) {
+        const dateStr = current.toISOString().split('T')[0];
+        const hour = current.getHours();
+        const minute = current.getMinutes();
+        
+        const block = document.querySelector(
+            `.time-block[data-datetime="${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00"]`
+        );
+        
+        if (block && block.classList.contains('booked')) {
+            hasConflict = true;
+            break;
+        }
+        
+        current.setMinutes(current.getMinutes() + 15);
+    }
+    
+    // Check if selection is within operating hours
+    const startHour = startDateTime.getHours();
+    const startMinute = startDateTime.getMinutes();
+    const endHour = actualEnd.getHours();
+    const endMinute = actualEnd.getMinutes();
+    
+    const startBeforeOpening = startHour < resourceOpeningHour || 
+        (startHour === resourceOpeningHour && startMinute < resourceOpeningMinute);
+    const endAfterClosing = endHour > resourceClosingHour || 
+        (endHour === resourceClosingHour && endMinute > resourceClosingMinute);
+    
+    if (startBeforeOpening || endAfterClosing) {
+        alert(`This resource is only available from ${formatTime(resourceOpeningHour, resourceOpeningMinute)} to ${formatTime(resourceClosingHour, resourceClosingMinute)}. Your selection is outside these hours.`);
+        clearSelection();
+        return;
+    }
+    
+    // Format and display selected time
+    const startStr = formatDateTime(startDateTime);
+    const endStr = formatDateTime(actualEnd);
+    
+    // Update display to show if this will go to waitlist
+    let displayText = `${startStr} to ${endStr}`;
+    if (hasConflict) {
+        displayText += ' (This time slot is already booked. You will be added to the waitlist.)';
+        // Change alert style to warning
+        const selectedDisplay = document.getElementById('selected-time-display');
+        selectedDisplay.classList.remove('alert-primary');
+        selectedDisplay.classList.add('alert-warning');
+    } else {
+        // Use primary alert for available slots
+        const selectedDisplay = document.getElementById('selected-time-display');
+        selectedDisplay.classList.remove('alert-warning');
+        selectedDisplay.classList.add('alert-primary');
+    }
+    
+    document.getElementById('selected-time-text').textContent = displayText;
+    document.getElementById('selected-time-display').style.display = 'block';
+    
+    // Set form values
+    document.getElementById('booking-start').value = formatDateTimeLocal(startDateTime);
+    document.getElementById('booking-end').value = formatDateTimeLocal(actualEnd);
+    document.getElementById('submit-booking').disabled = false;
+    
+    // Update button text if there's a conflict (will be waitlisted)
+    const submitButton = document.getElementById('submit-booking');
+    if (hasConflict) {
+        submitButton.innerHTML = '<i class="bi bi-list-ul"></i> Join Waitlist';
+    } else {
+        {% if resource.booking_type == 'open' %}
+        submitButton.innerHTML = '<i class="bi bi-calendar-check"></i> Confirm Booking';
+        {% else %}
+        submitButton.innerHTML = '<i class="bi bi-calendar-check"></i> Request Booking';
+        {% endif %}
+    }
+}
+
+function formatTime(hour, minute) {
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    const displayMinute = String(minute).padStart(2, '0');
+    return `${displayHour}:${displayMinute} ${ampm}`;
+}
+
+function formatDateTime(date) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const dayName = days[date.getDay()];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    const displayMinute = String(minute).padStart(2, '0');
+    
+    return `${dayName}, ${month} ${day} at ${displayHour}:${displayMinute} ${ampm}`;
+}
+
+function formatDateTimeLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function clearSelection() {
+    selectedStartBlock = null;
+    selectedEndBlock = null;
+    isSelecting = false;
+    
+    document.querySelectorAll('.time-block.selected').forEach(function(block) {
+        block.classList.remove('selected');
+        // Restore original styling
+        if (block.classList.contains('booked')) {
+            block.style.backgroundColor = '#dc3545';
+            block.style.opacity = '0.7';
+        } else if (!block.classList.contains('disabled')) {
+            block.style.backgroundColor = '';
+            block.style.opacity = '';
+        }
+    });
+    
+    document.getElementById('selected-time-display').style.display = 'none';
+    document.getElementById('submit-booking').disabled = true;
+    document.getElementById('booking-start').value = '';
+    document.getElementById('booking-end').value = '';
+    
+    // Reset button text
+    const submitButton = document.getElementById('submit-booking');
+    {% if resource.booking_type == 'open' %}
+    submitButton.innerHTML = '<i class="bi bi-calendar-check"></i> Confirm Booking';
+    {% else %}
+    submitButton.innerHTML = '<i class="bi bi-calendar-check"></i> Request Booking';
+    {% endif %}
+}
+
+function changeWeek(offset) {
+    const currentDate = new Date(currentWeekStartDate);
+    currentDate.setDate(currentDate.getDate() + (offset * 7));
+    const weekStr = currentDate.toISOString().split('T')[0];
+    window.location.href = `{{ url_for('bookings.new_booking', resource_id=resource.id, view='calendar') }}&week=${weekStr}`;
+}
+</script>
+
+<style>
+.calendar-table {
+    font-size: 0.875rem;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.calendar-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border: 1px solid #990000;
+}
+
+.calendar-table tbody td {
+    border: 1px solid #dee2e6;
+    padding: 0;
+}
+
+.time-label {
+    border-right: 2px solid #990000 !important;
+    z-index: 6 !important;
+}
+
+.time-slot {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.time-block {
+    width: 100%;
+    transition: background-color 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.time-block:hover:not(.disabled):not(.selected) {
+    background-color: #e7f3ff !important;
+}
+
+.time-block.booked:hover:not(.selected) {
+    background-color: #c82333 !important;
+    opacity: 0.9 !important;
+}
+
+.time-block.booked {
+    cursor: pointer !important;
+    background-color: #dc3545 !important;
+}
+
+.time-block.booked:hover {
+    background-color: #c82333 !important;
+    opacity: 0.9 !important;
+}
+
+.time-block.booked.selected {
+    background-color: #ff6b6b !important;
+    opacity: 0.8 !important;
+}
+
+.time-block.disabled {
+    cursor: not-allowed !important;
+    background-color: #f8f9fa !important;
+}
+
+.time-block.selected {
+    background-color: #0d6efd !important;
+    opacity: 0.6 !important;
+    cursor: pointer;
+}
+
+.time-block.selected:hover {
+    background-color: #0b5ed7 !important;
+}
+
+.calendar-table tbody tr:hover .time-label {
+    background-color: #e9ecef !important;
+}
+</style>
+{% endblock %}

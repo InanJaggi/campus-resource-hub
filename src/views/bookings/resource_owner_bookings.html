@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% block title %}My Resource Bookings - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="mb-0">
+        <i class="bi bi-calendar-event"></i> My Resource Bookings
+      </h2>
+      <p class="text-muted">Manage bookings for your resources</p>
+    </div>
+    <a href="{{ url_for('resources.list_resources') }}" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left"></i> Back to Resources
+    </a>
+  </div>
+</div>
+
+<!-- Tabs for different booking statuses -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab">
+      <i class="bi bi-clock-history"></i> Pending 
+      {% if pending_bookings %}
+      <span class="badge bg-warning text-dark ms-2">{{ pending_bookings|length }}</span>
+      {% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab">
+      <i class="bi bi-check-circle"></i> Approved
+      {% if approved_bookings %}
+      <span class="badge bg-success ms-2">{{ approved_bookings|length }}</span>
+      {% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab">
+      <i class="bi bi-check2-all"></i> Completed
+      {% if completed_bookings %}
+      <span class="badge bg-info ms-2">{{ completed_bookings|length }}</span>
+      {% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="cancelled-tab" data-bs-toggle="tab" data-bs-target="#cancelled" type="button" role="tab">
+      <i class="bi bi-x-circle"></i> Cancelled/Rejected
+      {% if cancelled_bookings %}
+      <span class="badge bg-secondary ms-2">{{ cancelled_bookings|length }}</span>
+      {% endif %}
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Pending Bookings -->
+  <div class="tab-pane fade show active" id="pending" role="tabpanel">
+    {% if pending_bookings %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>User</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Requested</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for booking in pending_bookings %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('resources.detail', resource_id=booking.resource_id) }}">
+                    <strong>{{ booking.resource.title }}</strong>
+                  </a>
+                  <br>
+                  <small class="text-muted">{{ booking.resource.category|title }}</small>
+                </td>
+                <td>
+                  {{ booking.user.name }}
+                  <br>
+                  <small class="text-muted">{{ booking.user.email }}</small>
+                </td>
+                <td>{{ booking.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ booking.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td><small>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</small></td>
+                <td>
+                  <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('bookings.approve', booking_id=booking.id) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to approve this booking?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <button type="submit" class="btn btn-sm btn-success" title="Approve Booking">
+                        <i class="bi bi-check-circle"></i>
+                      </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('bookings.reject', booking_id=booking.id) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to reject this booking?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <button type="submit" class="btn btn-sm btn-danger" title="Reject Booking">
+                        <i class="bi bi-x-circle"></i>
+                      </button>
+                    </form>
+                    <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-eye"></i> View
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted"></i>
+        <p class="text-muted mt-3">No pending bookings</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Approved Bookings -->
+  <div class="tab-pane fade" id="approved" role="tabpanel">
+    {% if approved_bookings %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>User</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for booking in approved_bookings %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('resources.detail', resource_id=booking.resource_id) }}">
+                    <strong>{{ booking.resource.title }}</strong>
+                  </a>
+                </td>
+                <td>{{ booking.user.name }}</td>
+                <td>{{ booking.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ booking.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                  <span class="badge bg-success">{{ booking.status|title }}</span>
+                </td>
+                <td>
+                  <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> View
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-check-circle display-1 text-muted"></i>
+        <p class="text-muted mt-3">No approved bookings</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Completed Bookings -->
+  <div class="tab-pane fade" id="completed" role="tabpanel">
+    {% if completed_bookings %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>User</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for booking in completed_bookings %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('resources.detail', resource_id=booking.resource_id) }}">
+                    <strong>{{ booking.resource.title }}</strong>
+                  </a>
+                </td>
+                <td>{{ booking.user.name }}</td>
+                <td>{{ booking.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ booking.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                  <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> View
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-check2-all display-1 text-muted"></i>
+        <p class="text-muted mt-3">No completed bookings</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Cancelled/Rejected Bookings -->
+  <div class="tab-pane fade" id="cancelled" role="tabpanel">
+    {% if cancelled_bookings %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>User</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for booking in cancelled_bookings %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('resources.detail', resource_id=booking.resource_id) }}">
+                    <strong>{{ booking.resource.title }}</strong>
+                  </a>
+                </td>
+                <td>{{ booking.user.name }}</td>
+                <td>{{ booking.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ booking.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                  <span class="badge bg-danger">{{ booking.status|title }}</span>
+                </td>
+                <td>
+                  <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> View
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-x-circle display-1 text-muted"></i>
+        <p class="text-muted mt-3">No cancelled or rejected bookings</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

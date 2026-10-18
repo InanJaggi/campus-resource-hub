@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}My Resources - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="mb-0">
+        <i class="bi bi-folder"></i> My Resources
+      </h2>
+      <p class="text-muted">Manage your resources</p>
+    </div>
+    <a href="{{ url_for('resources.new_resource') }}" class="btn btn-primary">
+      <i class="bi bi-plus-circle"></i> Add New Resource
+    </a>
+  </div>
+</div>
+
+{% if resources %}
+<div class="row">
+  {% for r in resources %}
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 shadow-sm border-0">
+      <!-- Resource Image -->
+      <div class="resource-card-image" style="height: 200px; overflow: hidden; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+        {% if r.images %}
+        <img src="{{ url_for('static', filename=r.images) }}" alt="{{ r.title }}" class="card-img-top" style="object-fit: cover; width: 100%; height: 100%;">
+        {% else %}
+        <div class="text-center text-muted p-4">
+          <i class="bi bi-image" style="font-size: 3rem;"></i>
+          <p class="small mb-0 mt-2">No image</p>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title">
+          <a href="{{ url_for('resources.detail', resource_id=r.id) }}" class="text-decoration-none">
+            {{ r.title }}
+          </a>
+        </h5>
+        <div class="mb-2">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
+            <span class="badge" style="background-color: #990000; color: white;">{{ r.category|title }}</span>
+            {% if r.booking_type == 'open' %}
+            <span class="badge bg-success small">Open</span>
+            {% else %}
+            <span class="badge bg-warning text-dark small">Requires Approval</span>
+            {% endif %}
+            <span class="badge" style="background-color: {{ '#990000' if r.status == 'published' else '#6c757d' }}; color: white;">
+              {{ r.status|title }}
+            </span>
+          </div>
+          {% if r.avg_rating > 0 %}
+          <div class="text-warning d-flex align-items-center small">
+            {% set rating_rounded = r.avg_rating|round(0, 'floor')|int %}
+            {% for i in range(1, 6) %}
+              {% if i <= rating_rounded %}
+                <i class="bi bi-star-fill"></i>
+              {% elif i == rating_rounded + 1 and r.avg_rating - rating_rounded >= 0.5 %}
+                <i class="bi bi-star-half"></i>
+              {% else %}
+                <i class="bi bi-star"></i>
+              {% endif %}
+            {% endfor %}
+            <small class="text-dark ms-1">{{ "%.1f"|format(r.avg_rating) }}</small>
+          </div>
+          {% endif %}
+        </div>
+        <div class="small text-muted mb-2">
+          <i class="bi bi-geo-alt"></i> {{ r.location or 'Location not specified' }}<br>
+          <i class="bi bi-people"></i> Capacity: {{ r.capacity }} person{{ 's' if r.capacity != 1 else '' }}
+          {% if r.opening_time and r.closing_time %}
+          <br>
+          <i class="bi bi-clock"></i> {{ r.opening_time.strftime('%I:%M %p') }} - {{ r.closing_time.strftime('%I:%M %p') }}
+          {% endif %}
+        </div>
+        <p class="card-text flex-grow-1 small">{{ r.description[:100] }}{% if r.description|length > 100 %}...{% endif %}</p>
+        <div class="d-grid gap-2 mt-auto">
+          <a href="{{ url_for('resources.edit', resource_id=r.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil"></i> Edit Resource
+          </a>
+          <a href="{{ url_for('resources.detail', resource_id=r.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-eye"></i> View Details
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-4">
+  <p class="text-muted text-center">
+    <strong>{{ resources|length }}</strong> resource{{ 's' if resources|length != 1 else '' }} owned by you
+  </p>
+</div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-folder display-1 text-muted"></i>
+    <h4 class="mt-3">No resources yet</h4>
+    <p class="text-muted">You haven't created any resources yet. Start by creating your first resource!</p>
+    <a href="{{ url_for('resources.new_resource') }}" class="btn btn-primary mt-3">
+      <i class="bi bi-plus-circle"></i> Create Your First Resource
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+

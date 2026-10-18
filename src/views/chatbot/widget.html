@@ -1,0 +1,1684 @@
+<!-- AI Chatbot Widget -->
+<div id="chatbot-widget" class="chatbot-container">
+  <!-- Chat Button -->
+  <button id="chatbot-toggle" class="chatbot-toggle" aria-label="Open AI Assistant">
+    <i class="bi bi-robot" id="chatbot-icon"></i>
+    <span class="chatbot-badge" id="chatbot-badge" style="display: none;">1</span>
+  </button>
+  
+  <!-- Chat Window -->
+  <div id="chatbot-window" class="chatbot-window" style="display: none;">
+    <div class="chatbot-header">
+      <div class="d-flex align-items-center">
+        <i class="bi bi-robot me-2"></i>
+        <h6 class="mb-0">AI Assistant</h6>
+      </div>
+      <button id="chatbot-close" class="btn btn-sm btn-link text-white p-0" aria-label="Close chat">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    
+    <div id="chatbot-messages" class="chatbot-messages">
+      <div class="chatbot-message chatbot-bot">
+        <div class="message-content">
+          <i class="bi bi-robot me-2"></i>
+          <div>
+            <strong>AI Assistant</strong>
+            <p class="mb-0">Hello! I'm your AI assistant for the Campus Resource Hub. I can help you with:</p>
+            <ul class="mb-0 small">
+              <li>Finding and booking resources</li>
+              <li>Checking availability</li>
+              <li>Understanding how to use the website</li>
+              <li>Answering questions about resources, bookings, messaging, and more</li>
+            </ul>
+            <p class="mb-0 mt-2">What can I help you with today?</p>
+          </div>
+        </div>
+        <div class="message-time"></div>
+      </div>
+    </div>
+    
+    <div class="chatbot-input-container">
+      <div class="input-group">
+        <input 
+          type="text" 
+          id="chatbot-input" 
+          class="form-control" 
+          placeholder="Type your message..."
+          autocomplete="off"
+        >
+        <button id="chatbot-send" class="btn btn-primary" type="button">
+          <i class="bi bi-send"></i>
+        </button>
+      </div>
+      <div id="chatbot-typing" class="chatbot-typing" style="display: none;">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('chatbot-toggle');
+    const closeBtn = document.getElementById('chatbot-close');
+    const chatWindow = document.getElementById('chatbot-window');
+    const messagesContainer = document.getElementById('chatbot-messages');
+    const inputField = document.getElementById('chatbot-input');
+    const sendBtn = document.getElementById('chatbot-send');
+    const typingIndicator = document.getElementById('chatbot-typing');
+    
+    let isOpen = false;
+    
+    // Toggle chat window
+    toggleBtn.addEventListener('click', function() {
+        isOpen = !isOpen;
+        chatWindow.style.display = isOpen ? 'flex' : 'none';
+        if (isOpen) {
+            inputField.focus();
+            scrollToBottom();
+        }
+    });
+    
+    // Close chat window
+    closeBtn.addEventListener('click', function() {
+        isOpen = false;
+        chatWindow.style.display = 'none';
+    });
+    
+    // Send message on button click
+    sendBtn.addEventListener('click', sendMessage);
+    
+    // Send message on Enter key
+    inputField.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    function sendMessage() {
+        const message = inputField.value.trim();
+        if (!message) return;
+        
+        // Add user message to chat
+        addMessage(message, 'user');
+        inputField.value = '';
+        inputField.disabled = true;
+        sendBtn.disabled = true;
+        
+        // Show typing indicator
+        typingIndicator.style.display = 'block';
+        scrollToBottom();
+        
+        // Send to backend with current page context
+        fetch('/chatbot/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                message: message,
+                current_page: window.location.pathname
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                // If response is not OK, try to get error message
+                return response.text().then(text => {
+                    try {
+                        const json = JSON.parse(text);
+                        throw new Error(json.error || `Server error: ${response.status}`);
+                    } catch (e) {
+                        if (e instanceof Error && e.message.includes('Server error')) {
+                            throw e;
+                        }
+                        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                    }
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            typingIndicator.style.display = 'none';
+            inputField.disabled = false;
+            sendBtn.disabled = false;
+            
+            if (data.error) {
+                addMessage('Sorry, I encountered an error: ' + data.error, 'bot', true);
+            } else {
+                addMessage(data.reply, 'bot');
+                
+                // Handle tutorial or highlight
+                if (data.tutorial) {
+                    startTutorial(data.tutorial);
+                } else if (data.highlight) {
+                    highlightElement(data.highlight);
+                }
+            }
+            inputField.focus();
+        })
+        .catch(error => {
+            typingIndicator.style.display = 'none';
+            inputField.disabled = false;
+            sendBtn.disabled = false;
+            const errorMsg = error.message || 'Sorry, I couldn\'t connect to the server. Please try again.';
+            addMessage(errorMsg, 'bot', true);
+            console.error('Chatbot error:', error);
+            inputField.focus();
+        });
+    }
+    
+    function addMessage(text, sender, isError = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chatbot-message chatbot-${sender}`;
+        if (isError) {
+            messageDiv.classList.add('chatbot-error');
+        }
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        if (sender === 'bot') {
+            contentDiv.innerHTML = `
+                <i class="bi bi-robot me-2"></i>
+                <div>
+                    <strong>AI Assistant</strong>
+                    <p class="mb-0">${escapeHtml(text)}</p>
+                </div>
+            `;
+        } else {
+            contentDiv.innerHTML = `
+                <div class="ms-auto text-end">
+                    <p class="mb-0">${escapeHtml(text)}</p>
+                </div>
+            `;
+        }
+        
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        messageDiv.appendChild(contentDiv);
+        messageDiv.appendChild(timeDiv);
+        messagesContainer.appendChild(messageDiv);
+        
+        scrollToBottom();
+    }
+    
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Spotlight/Highlight functionality
+    let currentHighlight = null;
+    let highlightTimeout = null;
+    
+    function highlightElement(highlightId) {
+        // Clear any existing highlight
+        clearHighlight();
+        
+        // Find the element to highlight
+        const element = document.querySelector(`[data-highlight-id="${highlightId}"]`);
+        
+        if (!element) {
+            console.warn(`Element with highlight ID "${highlightId}" not found`);
+            return;
+        }
+        
+        // Show overlay
+        const overlay = document.getElementById('spotlight-overlay');
+        if (overlay) {
+            overlay.style.display = 'block';
+        }
+        
+        // Add highlight class to element
+        element.classList.add('spotlight-highlight');
+        currentHighlight = element;
+        
+        // Scroll element into view if needed
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        
+        // Calculate position for overlay cutout
+        updateOverlayCutout(element);
+        
+        // Auto-clear highlight after 5 seconds
+        highlightTimeout = setTimeout(() => {
+            clearHighlight();
+        }, 5000);
+        
+        // Allow clicking to clear
+        if (overlay) {
+            overlay.addEventListener('click', clearHighlight, { once: true });
+        }
+        element.addEventListener('click', clearHighlight, { once: true });
+    }
+    
+    function updateOverlayCutout(element) {
+        const overlay = document.getElementById('spotlight-overlay');
+        if (!overlay || !element) return;
+        
+        // Get the actual bounding box of the element
+        // Use getBoundingClientRect() which gives precise position
+        const rect = element.getBoundingClientRect();
+        // Use minimal padding for buttons, more for larger elements
+        const isButton = element.classList.contains('btn') || 
+                        element.tagName === 'BUTTON' || 
+                        (element.tagName === 'A' && element.classList.contains('btn')) ||
+                        element.classList.contains('nav-link');
+        const padding = isButton ? 2 : 8; // Even smaller padding for buttons and nav links
+        
+        // Create a clip-path that cuts out the element area
+        const clipPath = `polygon(
+            0% 0%, 
+            0% 100%, 
+            ${Math.max(0, (rect.left - padding) / window.innerWidth * 100)}% 100%, 
+            ${Math.max(0, (rect.left - padding) / window.innerWidth * 100)}% ${Math.max(0, (rect.top - padding) / window.innerHeight * 100)}%, 
+            ${Math.min(100, (rect.right + padding) / window.innerWidth * 100)}% ${Math.max(0, (rect.top - padding) / window.innerHeight * 100)}%, 
+            ${Math.min(100, (rect.right + padding) / window.innerWidth * 100)}% ${Math.min(100, (rect.bottom + padding) / window.innerHeight * 100)}%, 
+            ${Math.max(0, (rect.left - padding) / window.innerWidth * 100)}% ${Math.min(100, (rect.bottom + padding) / window.innerHeight * 100)}%, 
+            ${Math.max(0, (rect.left - padding) / window.innerWidth * 100)}% 100%, 
+            100% 100%, 
+            100% 0%
+        )`;
+        
+        overlay.style.clipPath = clipPath;
+        
+        // Update on scroll/resize
+        const updateHandler = () => {
+            if (currentHighlight) {
+                updateOverlayCutout(currentHighlight);
+            }
+        };
+        
+        window.addEventListener('scroll', updateHandler, { once: true, passive: true });
+        window.addEventListener('resize', updateHandler, { once: true, passive: true });
+    }
+    
+    function clearHighlight() {
+        if (currentHighlight) {
+            currentHighlight.classList.remove('spotlight-highlight');
+            currentHighlight = null;
+        }
+        
+        const overlay = document.getElementById('spotlight-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.style.clipPath = '';
+        }
+        
+        if (highlightTimeout) {
+            clearTimeout(highlightTimeout);
+            highlightTimeout = null;
+        }
+    }
+    
+    // Make clearHighlight available globally for manual clearing
+    window.clearHighlight = clearHighlight;
+    
+    // Tutorial System
+    let currentTutorial = null;
+    let tutorialStep = 0;
+    let tutorialData = null;
+    
+    const tutorials = {
+        navigation: {
+            name: "Navigation Tour",
+            steps: [
+                {
+                    element: '[data-highlight-id="nav-browse"]',
+                    title: "Browse Resources",
+                    description: "Click here to explore all available campus resources. You can search, filter, and view details of study rooms, equipment, and event spaces.",
+                    position: "bottom"
+                },
+                {
+                    element: '[data-highlight-id="nav-bookings"]',
+                    title: "My Bookings",
+                    description: "View all your past, current, and upcoming bookings. You can edit upcoming bookings or cancel them if needed.",
+                    position: "bottom"
+                },
+                {
+                    element: '[data-highlight-id="nav-reviews"]',
+                    title: "Reviews",
+                    description: "Leave reviews and ratings for resources you've used. Help others make informed decisions!",
+                    position: "bottom"
+                },
+                {
+                    element: '[data-highlight-id="nav-messages"]',
+                    title: "Messages",
+                    description: "Communicate directly with resource owners or users. Ask questions, coordinate bookings, and stay in touch.",
+                    position: "bottom"
+                },
+                {
+                    element: '[data-highlight-id="nav-add-resource"]',
+                    title: "Add Resource",
+                    description: "Create new resources for others to book. Only staff and administrators can add resources.",
+                    position: "bottom",
+                    conditional: "staff"
+                },
+                {
+                    element: '[data-highlight-id="nav-my-resources"]',
+                    title: "My Resources",
+                    description: "View and manage all resources you own. Edit details, check bookings, and manage availability.",
+                    position: "bottom",
+                    conditional: "staff"
+                },
+                {
+                    element: '[data-highlight-id="nav-resource-bookings"]',
+                    title: "Resource Bookings",
+                    description: "See all bookings for your resources. Approve or reject pending booking requests.",
+                    position: "bottom",
+                    conditional: "staff"
+                },
+                {
+                    element: '[data-highlight-id="nav-admin"]',
+                    title: "Admin Panel",
+                    description: "Access administrative tools including user management, booking logs, and system statistics.",
+                    position: "bottom",
+                    conditional: "admin"
+                }
+            ]
+        },
+        'add-resource': {
+            name: "How to Add a Resource",
+            steps: [
+                {
+                    element: '[data-highlight-id="nav-add-resource"]',
+                    title: "Start Here",
+                    description: "Click 'Add Resource' in the navigation bar to begin creating a new resource.",
+                    position: "bottom",
+                    action: "click"
+                },
+                {
+                    element: '#title',
+                    title: "Resource Title",
+                    description: "Give your resource a clear, descriptive name (e.g., 'Study Room 101' or 'Laptop - MacBook Pro').",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: '#category',
+                    title: "Category",
+                    description: "Select the category that best fits your resource. This helps users find it easily.",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: '#booking_type',
+                    title: "Booking Type",
+                    description: "Choose 'Open' for automatic approval or 'Restricted' if you want to review each booking request.",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: '#opening_time',
+                    title: "Hours of Operation",
+                    description: "Set when this resource is available. Bookings outside these hours will be rejected.",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: '#capacity',
+                    title: "Capacity",
+                    description: "How many people can use this resource at once? Important for study rooms and event spaces.",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: '#image',
+                    title: "Resource Image",
+                    description: "Upload a photo to help users identify your resource. This appears on the resource card.",
+                    position: "right",
+                    page: "/resources/new"
+                },
+                {
+                    element: 'button[type="submit"]',
+                    title: "Submit",
+                    description: "Once you've filled in all the details, click here to create your resource!",
+                    position: "top",
+                    page: "/resources/new"
+                }
+            ]
+        },
+        booking: {
+            name: "How to Book a Resource",
+            steps: [
+                {
+                    element: '[data-highlight-id="nav-browse"]',
+                    title: "Start Browsing",
+                    description: "Let's start by browsing available resources. I'll take you to the resources page now.",
+                    position: "bottom",
+                    action: "click",
+                    page: "/"
+                },
+                {
+                    element: '.resource-card-image, .card.h-100',
+                    title: "Resource Cards",
+                    description: "Here are all the available resources! Each card shows a resource with its image, rating, location, and capacity. The star rating shows how others have rated it. I'll show you the details of one now.",
+                    position: "top",
+                    page: "/resources/",
+                    selector: "first",
+                    wait: 2000,
+                    action: "click"
+                },
+                {
+                    element: 'a.btn-outline-primary[href*="/resources/"]:not([href*="/resources/new"]):not([href*="/resources/"])',
+                    title: "View Details",
+                    description: "Clicking 'View Details' to see full information about this resource, including reviews, availability, and booking options.",
+                    position: "bottom",
+                    page: "/resources/",
+                    action: "click",
+                    selector: "first",
+                    wait: 2000
+                },
+                {
+                    element: '.card-body h1, .card-body h2, .card-body .card-title',
+                    title: "Resource Information",
+                    description: "This section shows the resource title, description, and key details like location and capacity. Scroll down to see more information.",
+                    position: "right",
+                    page: "/resources/",
+                    wait: 1000
+                },
+                {
+                    element: '.list-group',
+                    title: "Quick Info",
+                    description: "Here you'll find operating hours, capacity, booking type (Open or Restricted), and current status at a glance.",
+                    position: "right",
+                    page: "/resources/",
+                    wait: 1000
+                },
+                {
+                    element: 'a.btn-primary[href*="bookings/new"][href*="calendar"]',
+                    title: "Book with Calendar",
+                    description: "Click 'Book with Calendar' for a visual calendar view where you can see available time slots and select your booking time by highlighting blocks.",
+                    position: "top",
+                    page: "/resources/",
+                    action: "click",
+                    selector: "first",
+                    wait: 2000
+                },
+                {
+                    element: '.calendar-table, table.calendar',
+                    title: "Calendar View",
+                    description: "This calendar shows the week view with hours on the left. Gray blocks are outside operating hours. Red blocks are already booked. You can click and drag to select available time slots.",
+                    position: "top",
+                    page: "/bookings/new",
+                    wait: 1500
+                },
+                {
+                    element: '.time-block:not(.booked):not(.disabled)',
+                    title: "Select Time Slot",
+                    description: "Click and drag across available time blocks (white/green) to select your booking time. The selected time will appear at the top. Minimum booking is 30 minutes.",
+                    position: "top",
+                    page: "/bookings/new",
+                    selector: "first",
+                    wait: 1000
+                },
+                {
+                    element: 'button[type="submit"], .btn-primary[type="submit"]',
+                    title: "Confirm Booking",
+                    description: "Once you've selected your time slot, review the details shown at the top, then click here to submit your booking. For open resources, it's approved immediately!",
+                    position: "top",
+                    page: "/bookings/new"
+                },
+                {
+                    element: 'a.btn-outline-primary[href*="bookings/new"][href*="form"]',
+                    title: "Alternative: Book with Form",
+                    description: "If you prefer, you can also use the form view instead of the calendar. Click 'Book with Form' to use traditional date/time inputs.",
+                    position: "top",
+                    page: "/resources/",
+                    action: "click",
+                    selector: "first",
+                    alternative: true,
+                    wait: 2000
+                },
+                {
+                    element: 'input[id="start"], input[name="start"]',
+                    title: "Select Start Time",
+                    description: "Choose when you want to start using the resource. Time selection is in 15-minute intervals. Bookings must be at least 30 minutes and within operating hours.",
+                    position: "right",
+                    page: "/bookings/new",
+                    wait: 1000
+                },
+                {
+                    element: 'input[id="end"], input[name="end"]',
+                    title: "Select End Time",
+                    description: "Choose when you'll finish using the resource. The duration must be at least 30 minutes. Make sure the end time is after the start time.",
+                    position: "right",
+                    page: "/bookings/new",
+                    wait: 1000
+                },
+                {
+                    element: 'select[name="recurrence"]',
+                    title: "Recurring Booking (Optional)",
+                    description: "If you need to book this resource regularly, select a recurrence pattern (daily, weekly, etc.). Leave as 'None' for a one-time booking.",
+                    position: "right",
+                    page: "/bookings/new",
+                    wait: 1000
+                },
+                {
+                    element: 'button[type="submit"]',
+                    title: "Submit Booking",
+                    description: "Review all your booking details, then click here to submit. For open resources, your booking will be approved immediately. For restricted resources, you'll need to wait for owner approval.",
+                    position: "top",
+                    page: "/bookings/new"
+                }
+            ]
+        }
+    };
+    
+    function startTutorial(tutorialName) {
+        if (!tutorials[tutorialName]) {
+            console.warn(`Tutorial "${tutorialName}" not found`);
+            return;
+        }
+        
+        currentTutorial = tutorialName;
+        tutorialData = tutorials[tutorialName];
+        
+        // Check if we're resuming a tutorial after navigation
+        const savedStep = sessionStorage.getItem('tutorial_step');
+        const savedTutorial = sessionStorage.getItem('tutorial_active');
+        
+        if (savedStep && savedTutorial === tutorialName) {
+            // We're resuming after navigation - go directly to the saved step
+            const stepToShow = parseInt(savedStep);
+            console.log(`Resuming tutorial "${tutorialName}" at step ${stepToShow} on page ${window.location.pathname}`);
+            
+            // Clear sessionStorage AFTER we've confirmed we're resuming (to prevent loops)
+            // But do it in the timeout so we don't clear it if something goes wrong
+            setTimeout(() => {
+                // Clear sessionStorage now that we're about to show the step
+                sessionStorage.removeItem('tutorial_active');
+                sessionStorage.removeItem('tutorial_step');
+                
+                // Skip page check and go straight to showing the step
+                continueTutorialStepDirectly(stepToShow);
+            }, 2000); // Wait for page to fully load
+        } else {
+            tutorialStep = 0;
+            // Show tutorial welcome message
+            addMessage(`Starting ${tutorialData.name} tutorial. Follow the highlights and click "Next" or tap the screen to continue.`, 'bot');
+            // Start first step
+            showTutorialStep(0);
+        }
+    }
+    
+    function continueTutorialStepDirectly(stepIndex) {
+        if (!tutorialData || stepIndex >= tutorialData.steps.length) {
+            endTutorial();
+            return;
+        }
+        
+        const step = tutorialData.steps[stepIndex];
+        tutorialStep = stepIndex;
+        
+        // Skip conditional steps if user doesn't have required role
+        if (step.conditional) {
+            const userRole = document.body.getAttribute('data-user-role') || 
+                           (document.querySelector('.navbar-text-user') && 
+                            document.querySelector('.navbar-text-user').textContent.includes('admin') ? 'admin' : 
+                            document.querySelector('.navbar-text-user') && 
+                            document.querySelector('.navbar-text-user').textContent.includes('staff') ? 'staff' : 'student');
+            
+            if (step.conditional === 'staff' && userRole !== 'staff' && userRole !== 'admin') {
+                continueTutorialStepDirectly(stepIndex + 1);
+                return;
+            }
+            if (step.conditional === 'admin' && userRole !== 'admin') {
+                continueTutorialStepDirectly(stepIndex + 1);
+                return;
+            }
+        }
+        
+        // Skip alternative steps unless explicitly requested
+        if (step.alternative && tutorialStep < stepIndex) {
+            continueTutorialStepDirectly(stepIndex + 1);
+            return;
+        }
+        
+        // IMPORTANT: When resuming after navigation, skip page checks
+        // Just show the step content directly
+        if (step.wait) {
+            setTimeout(() => {
+                showTutorialStepContent(stepIndex);
+            }, step.wait);
+            return;
+        }
+        
+        showTutorialStepContent(stepIndex);
+    }
+    
+    function showTutorialStepContent(stepIndex) {
+        if (!tutorialData || stepIndex >= tutorialData.steps.length) {
+            endTutorial();
+            return;
+        }
+        
+        const step = tutorialData.steps[stepIndex];
+        
+        // Update tutorialStep to current step
+        tutorialStep = stepIndex;
+        
+        // Find the element to highlight
+        let element = null;
+        if (step.selector === "first") {
+            // Special handling for resource cards - need to exclude search/filter card
+            if (step.element.includes('resource-card') || step.element.includes('.card.h-100')) {
+                // Find cards in the resources grid (the row with role="list")
+                const resourcesRow = document.querySelector('.row[role="list"]');
+                if (resourcesRow) {
+                    const resourceCards = resourcesRow.querySelectorAll('.card.h-100');
+                    const validCards = Array.from(resourceCards).filter(card => {
+                        const rect = card.getBoundingClientRect();
+                        const hasResourceImage = card.querySelector('.resource-card-image');
+                        const hasViewDetails = card.querySelector('a[href*="/resources/"]:not([href*="/resources/new"]):not([href*="/resources/"])');
+                        return rect.width > 0 && rect.height > 0 && 
+                               (hasResourceImage || hasViewDetails) &&
+                               !card.closest('#chatbot-widget') && 
+                               !card.closest('#tutorial-bubble');
+                    });
+                    element = validCards.length > 0 ? validCards[0] : null;
+                } else {
+                    // Fallback: find any card with resource-card-image that's not the search card
+                    const allCards = document.querySelectorAll('.card');
+                    const validCards = Array.from(allCards).filter(card => {
+                        const rect = card.getBoundingClientRect();
+                        const hasResourceImage = card.querySelector('.resource-card-image');
+                        const isSearchCard = card.closest('.card.shadow-sm.mb-4') === card || 
+                                           card.querySelector('#search-form');
+                        return rect.width > 0 && rect.height > 0 && 
+                               hasResourceImage &&
+                               !isSearchCard &&
+                               !card.closest('#chatbot-widget') && 
+                               !card.closest('#tutorial-bubble');
+                    });
+                    element = validCards.length > 0 ? validCards[0] : null;
+                }
+            } else {
+                // For other elements, use the original logic
+                const elements = document.querySelectorAll(step.element);
+                const visibleElements = Array.from(elements).filter(el => {
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0 && 
+                           !el.closest('#chatbot-widget') && 
+                           !el.closest('#tutorial-bubble') &&
+                           !el.closest('.navbar') &&
+                           el.tagName !== 'NAV';
+                });
+                element = visibleElements.length > 0 ? visibleElements[0] : null;
+            }
+        } else {
+            element = document.querySelector(step.element);
+            // Make sure it's not the chatbot or tutorial bubble
+            if (element && (element.closest('#chatbot-widget') || element.closest('#tutorial-bubble'))) {
+                element = null;
+            }
+        }
+        
+        // Special handling for "View Details" button - find it within the highlighted card
+        if (!element && step.element.includes('btn') && step.selector === "first") {
+            // First, try to find the button within the currently highlighted card
+            if (currentHighlight) {
+                const card = currentHighlight.closest('.card');
+                if (card) {
+                    const btn = card.querySelector('a.btn-outline-primary, a.btn-primary');
+                    const btnText = btn ? btn.textContent.trim() : '';
+                    if (btn && btn.href && !btn.href.includes('/resources/new') && !btn.href.endsWith('/resources/') && btnText.includes('View Details')) {
+                        element = btn;
+                    }
+                }
+            }
+            
+            // If not found in highlighted card, try to find it in the first resource card
+            if (!element) {
+                const resourcesRow = document.querySelector('.row[role="list"]');
+                if (resourcesRow) {
+                    const resourceCards = resourcesRow.querySelectorAll('.card.h-100');
+                    for (const card of resourceCards) {
+                        const btn = card.querySelector('a.btn-outline-primary, a.btn-primary');
+                        const btnText = btn ? btn.textContent.trim() : '';
+                        if (btn && btn.href && !btn.href.includes('/resources/new') && !btn.href.endsWith('/resources/') && btnText.includes('View Details')) {
+                            element = btn;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback: look for buttons with "View Details" text in resource cards only
+            if (!element) {
+                const allButtons = document.querySelectorAll('a.btn-outline-primary, a.btn-primary');
+                for (const btn of allButtons) {
+                    const btnText = btn.textContent.trim();
+                    const isViewDetails = btnText.includes('View Details') || btnText.includes('Details');
+                    const isInResourceCard = btn.closest('.row[role="list"]') && 
+                                            btn.closest('.card.h-100') &&
+                                            !btn.closest('.card.shadow-sm.mb-4'); // Not in search card
+                    const hasValidHref = btn.href && 
+                                       !btn.href.includes('/resources/new') && 
+                                       !btn.href.endsWith('/resources/') &&
+                                       btn.href.includes('/resources/');
+                    
+                    if (isViewDetails && isInResourceCard && hasValidHref) {
+                        element = btn;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!element) {
+            // Element not found, try next step
+            console.warn(`Tutorial step ${stepIndex}: Element not found: ${step.element}`);
+            setTimeout(() => showTutorialStep(stepIndex + 1), 500);
+            return;
+        }
+        
+        // Clear any existing highlights
+        clearHighlight();
+        
+        // Show overlay
+        const overlay = document.getElementById('spotlight-overlay');
+        if (overlay) {
+            overlay.style.display = 'block';
+        }
+        
+        // Highlight element - ensure we're highlighting the exact element, not a parent
+        // For buttons and nav links, make sure we highlight the element itself
+        let elementToHighlight = element;
+        if (element.tagName === 'A' && (element.classList.contains('btn') || element.classList.contains('nav-link'))) {
+            // It's already the button/link, use it directly
+            elementToHighlight = element;
+        } else if (element.querySelector && element.querySelector('a.btn, button.btn, a.nav-link')) {
+            // If we found a card but need the button, find the button
+            const btn = element.querySelector('a.btn, button.btn, a.nav-link');
+            if (btn) {
+                elementToHighlight = btn;
+            }
+        }
+        
+        // Remove any existing highlight classes first
+        elementToHighlight.classList.remove('spotlight-highlight');
+        
+        // Add highlight class
+        elementToHighlight.classList.add('spotlight-highlight');
+        currentHighlight = elementToHighlight;
+        
+        // Scroll into view - use requestAnimationFrame to ensure DOM is updated
+        requestAnimationFrame(() => {
+            elementToHighlight.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            // Update overlay cutout after scroll
+            setTimeout(() => {
+                updateOverlayCutout(elementToHighlight);
+            }, 100);
+        });
+        
+        // Show tutorial bubble - use the highlighted element for positioning
+        showTutorialBubble(elementToHighlight, step.title, step.description, step.position || "top");
+        
+        // Set up click handler to advance
+        const advanceHandler = () => {
+            if (step.action === "click" && element) {
+                // For click actions, actually click the element
+                const href = element.href || (element.closest('a') && element.closest('a').href);
+                if (href) {
+                    // Store tutorial state to continue after navigation
+                    sessionStorage.setItem('tutorial_active', currentTutorial);
+                    sessionStorage.setItem('tutorial_step', (stepIndex + 1).toString());
+                    
+                    // Navigate to the page
+                    window.location.href = href;
+                    // The tutorial will resume on the new page via page load handler
+                    return;
+                } else {
+                    // Try to trigger click event
+                    element.click();
+                    setTimeout(() => showTutorialStep(stepIndex + 1), step.wait || 1000);
+                }
+            } else {
+                // Just advance to next step
+                showTutorialStep(stepIndex + 1);
+            }
+        };
+        
+        // Store the step index and element for the advance handler
+        // The "Next" button in the tutorial bubble will call advanceHandler
+        // which will handle the auto-click if action is "click"
+        
+        if (overlay) {
+            overlay.onclick = (e) => {
+                // Don't allow clicking overlay to advance if there's an action
+                if (!step.action) {
+                    e.stopPropagation();
+                    advanceHandler();
+                }
+            };
+        }
+        if (element && !step.action) {
+            // Only set up click handler if it's not an action step (user can click element to advance)
+            const originalClick = element.onclick;
+            element.onclick = (e) => {
+                e.stopPropagation();
+                advanceHandler();
+            };
+        }
+    }
+    
+    // Resume tutorial on page load if it was active
+    let tutorialResumeAttempted = false;
+    
+    function resumeTutorialIfActive() {
+        if (tutorialResumeAttempted) {
+            return; // Only try once per page load
+        }
+        
+        const activeTutorial = sessionStorage.getItem('tutorial_active');
+        const savedStep = sessionStorage.getItem('tutorial_step');
+        
+        if (activeTutorial && tutorials[activeTutorial] && savedStep) {
+            tutorialResumeAttempted = true;
+            console.log(`Resume attempt: tutorial="${activeTutorial}", step="${savedStep}", path="${window.location.pathname}"`);
+            setTimeout(() => {
+                startTutorial(activeTutorial);
+            }, 1500); // Wait for page to fully load
+        }
+    }
+    
+    // Try to resume on DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', resumeTutorialIfActive);
+    } else {
+        // DOM already loaded
+        resumeTutorialIfActive();
+    }
+    
+    // Also try on window load as backup (but only if not already attempted)
+    window.addEventListener('load', () => {
+        if (!tutorialResumeAttempted) {
+            const activeTutorial = sessionStorage.getItem('tutorial_active');
+            const savedStep = sessionStorage.getItem('tutorial_step');
+            if (activeTutorial && tutorials[activeTutorial] && savedStep) {
+                tutorialResumeAttempted = true;
+                console.log(`Backup resume attempt: tutorial="${activeTutorial}", step="${savedStep}"`);
+                setTimeout(() => {
+                    startTutorial(activeTutorial);
+                }, 1000);
+            }
+        }
+    });
+    
+    function showTutorialStep(stepIndex) {
+        if (!tutorialData || stepIndex >= tutorialData.steps.length) {
+            // Tutorial complete
+            endTutorial();
+            return;
+        }
+        
+        const step = tutorialData.steps[stepIndex];
+        
+        // Skip conditional steps if user doesn't have required role
+        if (step.conditional) {
+            const userRole = document.body.getAttribute('data-user-role') || 
+                           (document.querySelector('.navbar-text-user') && 
+                            document.querySelector('.navbar-text-user').textContent.includes('admin') ? 'admin' : 
+                            document.querySelector('.navbar-text-user') && 
+                            document.querySelector('.navbar-text-user').textContent.includes('staff') ? 'staff' : 'student');
+            
+            if (step.conditional === 'staff' && userRole !== 'staff' && userRole !== 'admin') {
+                // Skip this step
+                showTutorialStep(stepIndex + 1);
+                return;
+            }
+            if (step.conditional === 'admin' && userRole !== 'admin') {
+                // Skip this step
+                showTutorialStep(stepIndex + 1);
+                return;
+            }
+        }
+        
+        tutorialStep = stepIndex;
+        
+        // Find the element to highlight
+        let element = null;
+        if (step.selector === "first") {
+            const elements = document.querySelectorAll(step.element);
+            // Filter out elements that are not visible or are the chatbot itself
+            const visibleElements = Array.from(elements).filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && 
+                       !el.closest('#chatbot-widget') && 
+                       !el.closest('#tutorial-bubble') &&
+                       !el.closest('.navbar') && // Don't highlight navbar items when looking for cards
+                       el.tagName !== 'NAV'; // Don't highlight nav elements
+            });
+            element = visibleElements.length > 0 ? visibleElements[0] : null;
+        } else {
+            element = document.querySelector(step.element);
+            // Make sure it's not the chatbot or tutorial bubble
+            if (element && (element.closest('#chatbot-widget') || element.closest('#tutorial-bubble'))) {
+                element = null;
+            }
+        }
+        
+        // Special handling for "View Details" button - find it within the highlighted card
+        if (!element && step.element.includes('btn') && step.selector === "first") {
+            // First, try to find the button within the currently highlighted card
+            if (currentHighlight) {
+                const card = currentHighlight.closest('.card');
+                if (card) {
+                    const btn = card.querySelector('a.btn-outline-primary, a.btn-primary');
+                    const btnText = btn ? btn.textContent.trim() : '';
+                    if (btn && btn.href && !btn.href.includes('/resources/new') && !btn.href.endsWith('/resources/') && btnText.includes('View Details')) {
+                        element = btn;
+                    }
+                }
+            }
+            
+            // If not found in highlighted card, try to find it in the first resource card
+            if (!element) {
+                const resourcesRow = document.querySelector('.row[role="list"]');
+                if (resourcesRow) {
+                    const resourceCards = resourcesRow.querySelectorAll('.card.h-100');
+                    for (const card of resourceCards) {
+                        const btn = card.querySelector('a.btn-outline-primary, a.btn-primary');
+                        const btnText = btn ? btn.textContent.trim() : '';
+                        if (btn && btn.href && !btn.href.includes('/resources/new') && !btn.href.endsWith('/resources/') && btnText.includes('View Details')) {
+                            element = btn;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback: look for buttons with "View Details" text in resource cards only
+            if (!element) {
+                const allButtons = document.querySelectorAll('a.btn-outline-primary, a.btn-primary');
+                for (const btn of allButtons) {
+                    const btnText = btn.textContent.trim();
+                    const isViewDetails = btnText.includes('View Details') || btnText.includes('Details');
+                    const isInResourceCard = btn.closest('.row[role="list"]') && 
+                                            btn.closest('.card.h-100') &&
+                                            !btn.closest('.card.shadow-sm.mb-4'); // Not in search card
+                    const hasValidHref = btn.href && 
+                                       !btn.href.includes('/resources/new') && 
+                                       !btn.href.endsWith('/resources/') &&
+                                       btn.href.includes('/resources/');
+                    
+                    if (isViewDetails && isInResourceCard && hasValidHref) {
+                        element = btn;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!element) {
+            // Element not found, try next step
+            console.warn(`Tutorial step ${stepIndex}: Element not found: ${step.element}`);
+            setTimeout(() => showTutorialStep(stepIndex + 1), 500);
+            return;
+        }
+        
+        // Clear any existing highlights
+        clearHighlight();
+        
+        // Show overlay
+        const overlay = document.getElementById('spotlight-overlay');
+        if (overlay) {
+            overlay.style.display = 'block';
+        }
+        
+        // Highlight element - ensure we're highlighting the exact element, not a parent
+        // For buttons and nav links, make sure we highlight the element itself
+        let elementToHighlight = element;
+        if (element.tagName === 'A' && (element.classList.contains('btn') || element.classList.contains('nav-link'))) {
+            // It's already the button/link, use it directly
+            elementToHighlight = element;
+        } else if (element.querySelector && element.querySelector('a.btn, button.btn, a.nav-link')) {
+            // If we found a card but need the button, find the button
+            const btn = element.querySelector('a.btn, button.btn, a.nav-link');
+            if (btn) {
+                elementToHighlight = btn;
+            }
+        }
+        
+        // Remove any existing highlight classes first
+        elementToHighlight.classList.remove('spotlight-highlight');
+        
+        // Add highlight class
+        elementToHighlight.classList.add('spotlight-highlight');
+        currentHighlight = elementToHighlight;
+        
+        // Scroll into view - use requestAnimationFrame to ensure DOM is updated
+        requestAnimationFrame(() => {
+            elementToHighlight.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            // Update overlay cutout after scroll
+            setTimeout(() => {
+                updateOverlayCutout(elementToHighlight);
+            }, 100);
+        });
+        
+        // Show tutorial bubble - use the highlighted element for positioning
+        showTutorialBubble(elementToHighlight, step.title, step.description, step.position || "top");
+        
+        // Set up click handler to advance
+        const advanceHandler = () => {
+            if (step.action === "click" && element) {
+                // For click actions, actually click the element
+                const href = element.href || (element.closest('a') && element.closest('a').href);
+                if (href) {
+                    // Store tutorial state to continue after navigation
+                    sessionStorage.setItem('tutorial_active', currentTutorial);
+                    sessionStorage.setItem('tutorial_step', (stepIndex + 1).toString());
+                    
+                    // Navigate to the page
+                    window.location.href = href;
+                    // The tutorial will resume on the new page via page load handler
+                    return;
+                } else {
+                    // Try to trigger click event
+                    element.click();
+                    setTimeout(() => showTutorialStep(stepIndex + 1), step.wait || 1000);
+                }
+            } else {
+                // Just advance to next step
+                showTutorialStep(stepIndex + 1);
+            }
+        };
+        
+        // Store the step index and element for the advance handler
+        // The "Next" button in the tutorial bubble will call advanceHandler
+        // which will handle the auto-click if action is "click"
+        
+        if (overlay) {
+            overlay.onclick = (e) => {
+                // Don't allow clicking overlay to advance if there's an action
+                if (!step.action) {
+                    e.stopPropagation();
+                    advanceHandler();
+                }
+            };
+        }
+        if (element && !step.action) {
+            // Only set up click handler if it's not an action step (user can click element to advance)
+            const originalClick = element.onclick;
+            element.onclick = (e) => {
+                e.stopPropagation();
+                advanceHandler();
+            };
+        }
+    }
+    
+    function showTutorialBubble(element, title, description, position) {
+        // Remove existing bubble
+        const existingBubble = document.getElementById('tutorial-bubble');
+        if (existingBubble) {
+            existingBubble.remove();
+        }
+        
+        // Create bubble
+        const bubble = document.createElement('div');
+        bubble.id = 'tutorial-bubble';
+        bubble.className = 'tutorial-bubble';
+        bubble.innerHTML = `
+            <div class="tutorial-bubble-header">
+                <strong>${escapeHtml(title)}</strong>
+                <button class="tutorial-bubble-close" onclick="endTutorial()">×</button>
+            </div>
+            <div class="tutorial-bubble-body">
+                ${escapeHtml(description)}
+            </div>
+            <div class="tutorial-bubble-footer">
+                <button class="btn btn-sm btn-primary tutorial-next" id="tutorial-next-btn">Next</button>
+                <span class="tutorial-progress">${tutorialStep + 1} / ${tutorialData.steps.length}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(bubble);
+        
+        // Position bubble relative to element
+        positionBubble(bubble, element, position);
+        
+        // Set up Next button click handler
+        const nextBtn = document.getElementById('tutorial-next-btn');
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                advanceTutorial();
+            };
+        }
+        
+        // Update position on scroll/resize
+        const updatePosition = () => {
+            if (currentHighlight) {
+                positionBubble(bubble, currentHighlight, position);
+            }
+        };
+        window.addEventListener('scroll', updatePosition, { passive: true });
+        window.addEventListener('resize', updatePosition, { passive: true });
+    }
+    
+    function positionBubble(bubble, element, position) {
+        const rect = element.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const padding = 25; // Increased padding to avoid covering elements
+        const isMobile = window.innerWidth <= 576;
+        const mobilePadding = 10;
+        const viewportPadding = 15;
+        
+        // Calculate available space in each direction
+        const spaceAbove = rect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceLeft = rect.left;
+        const spaceRight = window.innerWidth - rect.right;
+        
+        // Determine best position if not explicitly set or if default position would cover element
+        let bestPosition = position;
+        if (!position || position === 'auto') {
+            // Choose position with most space
+            const spaces = {
+                top: spaceAbove,
+                bottom: spaceBelow,
+                left: spaceLeft,
+                right: spaceRight
+            };
+            bestPosition = Object.keys(spaces).reduce((a, b) => spaces[a] > spaces[b] ? a : b);
+        }
+        
+        // On mobile, prefer top or bottom positioning (avoid left/right)
+        if (isMobile && (bestPosition === 'left' || bestPosition === 'right')) {
+            bestPosition = spaceAbove > spaceBelow ? 'top' : 'bottom';
+        }
+        
+        // Check if the requested position would cover the element
+        let wouldCover = false;
+        if (bestPosition === 'top' && spaceAbove < bubbleRect.height + padding) {
+            wouldCover = true;
+        } else if (bestPosition === 'bottom' && spaceBelow < bubbleRect.height + padding) {
+            wouldCover = true;
+        } else if (bestPosition === 'left' && spaceLeft < bubbleRect.width + padding) {
+            wouldCover = true;
+        } else if (bestPosition === 'right' && spaceRight < bubbleRect.width + padding) {
+            wouldCover = true;
+        }
+        
+        // If it would cover, choose alternative position
+        if (wouldCover) {
+            if (bestPosition === 'top' || bestPosition === 'bottom') {
+                bestPosition = spaceLeft > spaceRight ? 'left' : 'right';
+            } else {
+                bestPosition = spaceAbove > spaceBelow ? 'top' : 'bottom';
+            }
+        }
+        
+        let top, left;
+        
+        switch(bestPosition) {
+            case 'top':
+                top = rect.top - bubbleRect.height - padding;
+                left = rect.left + (rect.width / 2) - (bubbleRect.width / 2);
+                // If bubble would extend beyond viewport, adjust horizontally
+                if (left < viewportPadding) {
+                    left = viewportPadding;
+                } else if (left + bubbleRect.width > window.innerWidth - viewportPadding) {
+                    left = window.innerWidth - bubbleRect.width - viewportPadding;
+                }
+                break;
+            case 'bottom':
+                top = rect.bottom + padding;
+                left = rect.left + (rect.width / 2) - (bubbleRect.width / 2);
+                // If bubble would extend beyond viewport, adjust horizontally
+                if (left < viewportPadding) {
+                    left = viewportPadding;
+                } else if (left + bubbleRect.width > window.innerWidth - viewportPadding) {
+                    left = window.innerWidth - bubbleRect.width - viewportPadding;
+                }
+                break;
+            case 'left':
+                top = rect.top + (rect.height / 2) - (bubbleRect.height / 2);
+                left = rect.left - bubbleRect.width - padding;
+                // If bubble would extend beyond viewport, adjust vertically
+                if (top < viewportPadding) {
+                    top = viewportPadding;
+                } else if (top + bubbleRect.height > window.innerHeight - viewportPadding) {
+                    top = window.innerHeight - bubbleRect.height - viewportPadding;
+                }
+                break;
+            case 'right':
+                top = rect.top + (rect.height / 2) - (bubbleRect.height / 2);
+                left = rect.right + padding;
+                // If bubble would extend beyond viewport, adjust vertically
+                if (top < viewportPadding) {
+                    top = viewportPadding;
+                } else if (top + bubbleRect.height > window.innerHeight - viewportPadding) {
+                    top = window.innerHeight - bubbleRect.height - viewportPadding;
+                }
+                break;
+            default:
+                // Fallback: position above with center alignment
+                top = rect.top - bubbleRect.height - padding;
+                left = rect.left + (rect.width / 2) - (bubbleRect.width / 2);
+        }
+        
+        // Final viewport constraints
+        const minTop = isMobile ? mobilePadding : viewportPadding;
+        const minLeft = isMobile ? mobilePadding : viewportPadding;
+        const maxTop = window.innerHeight - bubbleRect.height - (isMobile ? mobilePadding : viewportPadding);
+        const maxLeft = window.innerWidth - bubbleRect.width - (isMobile ? mobilePadding : viewportPadding);
+        
+        top = Math.max(minTop, Math.min(top, maxTop));
+        left = Math.max(minLeft, Math.min(left, maxLeft));
+        
+        bubble.style.top = top + 'px';
+        bubble.style.left = left + 'px';
+    }
+    
+    function advanceTutorial() {
+        if (currentTutorial && tutorialData && tutorialData.steps[tutorialStep]) {
+            const currentStep = tutorialData.steps[tutorialStep];
+            
+            // If this step has an action to click, perform it now
+            if (currentStep.action === "click" && currentHighlight) {
+                const element = currentHighlight;
+                const href = element.href || (element.closest('a') && element.closest('a').href);
+                
+                if (href) {
+                    // Store tutorial state to continue after navigation
+                    // Store the NEXT step index (after the click)
+                    const nextStep = tutorialStep + 1;
+                    console.log(`Advancing from step ${tutorialStep} to step ${nextStep}, storing in sessionStorage`);
+                    sessionStorage.setItem('tutorial_active', currentTutorial);
+                    sessionStorage.setItem('tutorial_step', nextStep.toString());
+                    
+                    // Navigate to the page
+                    window.location.href = href;
+                    // The tutorial will resume on the new page via page load handler
+                    return;
+                } else {
+                    // Try to trigger click event
+                    element.click();
+                    setTimeout(() => {
+                        showTutorialStep(tutorialStep + 1);
+                    }, currentStep.wait || 1000);
+                    return;
+                }
+            } else {
+                // Just advance to next step (no action, just informational)
+                showTutorialStep(tutorialStep + 1);
+            }
+        }
+    }
+    
+    function endTutorial() {
+        clearHighlight();
+        
+        const bubble = document.getElementById('tutorial-bubble');
+        if (bubble) {
+            bubble.remove();
+        }
+        
+        currentTutorial = null;
+        tutorialStep = 0;
+        tutorialData = null;
+        
+        addMessage('Tutorial complete! Feel free to ask if you need help with anything else.', 'bot');
+    }
+    
+    // Make functions available globally
+    window.advanceTutorial = advanceTutorial;
+    window.endTutorial = endTutorial;
+});
+</script>
+
+<style>
+.chatbot-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.chatbot-toggle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #990000 0%, #cc0000 100%);
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chatbot-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.chatbot-toggle:active {
+    transform: scale(0.95);
+}
+
+.chatbot-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid white;
+}
+
+.chatbot-window {
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    width: 380px;
+    max-width: calc(100vw - 40px);
+    height: 500px;
+    max-height: calc(100vh - 120px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chatbot-header {
+    background: linear-gradient(135deg, #990000 0%, #cc0000 100%);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 12px 12px 0 0;
+}
+
+.chatbot-header h6 {
+    color: white;
+    font-weight: 600;
+}
+
+.chatbot-header button {
+    color: white !important;
+    opacity: 0.9;
+}
+
+.chatbot-header button:hover {
+    opacity: 1;
+}
+
+.chatbot-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #f8f9fa;
+}
+
+.chatbot-message {
+    margin-bottom: 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.chatbot-bot .message-content {
+    color: #333;
+}
+
+.chatbot-user .message-content {
+    justify-content: flex-end;
+}
+
+.chatbot-bot .message-content > div {
+    background: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 85%;
+}
+
+.chatbot-user .message-content > div {
+    background: #990000;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    max-width: 85%;
+}
+
+.chatbot-error .message-content > div {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message-content strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.875rem;
+}
+
+.message-content p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.message-content ul {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 4px;
+    padding-left: 4px;
+}
+
+.chatbot-user .message-time {
+    text-align: right;
+    padding-right: 4px;
+}
+
+.chatbot-input-container {
+    padding: 12px;
+    background: white;
+    border-top: 1px solid #dee2e6;
+}
+
+.chatbot-input-container .input-group {
+    margin-bottom: 8px;
+}
+
+.chatbot-input-container input {
+    border-radius: 20px;
+    border: 1px solid #dee2e6;
+    padding: 8px 16px;
+}
+
+.chatbot-input-container input:focus {
+    border-color: #990000;
+    box-shadow: 0 0 0 0.2rem rgba(153, 0, 0, 0.25);
+}
+
+.chatbot-input-container button {
+    border-radius: 20px;
+    padding: 8px 16px;
+    background: #990000;
+    border: none;
+}
+
+.chatbot-input-container button:hover,
+.chatbot-input-container button:focus,
+.chatbot-input-container button:active,
+.chatbot-input-container button:focus-visible {
+    background: #7a0000 !important;
+    border: none !important;
+    box-shadow: 0 0 0 0.25rem rgba(153, 0, 0, 0.25) !important;
+}
+
+.chatbot-input-container button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.chatbot-typing {
+    display: flex;
+    gap: 4px;
+    padding: 8px 0;
+    justify-content: center;
+}
+
+.chatbot-typing span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #990000;
+    animation: typing 1.4s infinite;
+}
+
+.chatbot-typing span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.chatbot-typing span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+/* Scrollbar styling */
+.chatbot-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chatbot-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb {
+    background: #990000;
+    border-radius: 3px;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb:hover {
+    background: #cc0000;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .chatbot-window {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        right: 10px;
+        bottom: 90px;
+        height: calc(100vh - 120px);
+        max-height: calc(100vh - 120px);
+    }
+    
+    .chatbot-container {
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .chatbot-toggle {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    .chatbot-header {
+        padding: 10px 12px;
+    }
+    
+    .chatbot-messages {
+        padding: 10px;
+    }
+    
+    .chatbot-input-container {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .chatbot-window {
+        width: calc(100vw - 10px);
+        max-width: calc(100vw - 10px);
+        right: 5px;
+        bottom: 80px;
+        height: calc(100vh - 100px);
+        max-height: calc(100vh - 100px);
+    }
+    
+    .chatbot-container {
+        bottom: 5px;
+        right: 5px;
+    }
+    
+    .chatbot-toggle {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+    
+    .chatbot-header h6 {
+        font-size: 0.9rem;
+    }
+    
+    .chatbot-message {
+        font-size: 0.9rem;
+    }
+    
+    .message-content {
+        padding: 8px 10px;
+    }
+}
+</style>
+

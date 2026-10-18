@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Edit Booking - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="mb-0">
+        <i class="bi bi-pencil"></i> Edit Booking
+      </h2>
+      <p class="text-muted">Booking #{{ booking.id }} - {{ booking.resource.title }}</p>
+    </div>
+    <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left"></i> Back to Details
+    </a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Edit Booking Details</h5>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle"></i> 
+          <strong>Resource:</strong> {{ booking.resource.title }}<br>
+          <strong>Location:</strong> {{ booking.resource.location or 'Not specified' }}<br>
+          <strong>Capacity:</strong> {{ booking.resource.capacity }} person{{ 's' if booking.resource.capacity != 1 else '' }}
+        </div>
+
+        <form method="post" class="needs-validation" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="start">
+                <i class="bi bi-clock"></i> Start Date & Time <span class="text-danger">*</span>
+              </label>
+              <input id="start" name="start" type="datetime-local" 
+                     value="{{ booking.start_time.strftime('%Y-%m-%dT%H:%M') }}" 
+                     class="form-control" step="900" required>
+              <div class="invalid-feedback">Please select a start time.</div>
+              <div class="form-text">Time selection is in 15-minute intervals. Minimum booking duration is 30 minutes.</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="end">
+                <i class="bi bi-clock-history"></i> End Date & Time <span class="text-danger">*</span>
+              </label>
+              <input id="end" name="end" type="datetime-local" 
+                     value="{{ booking.end_time.strftime('%Y-%m-%dT%H:%M') }}" 
+                     class="form-control" step="900" required>
+              <div class="invalid-feedback">Please select an end time.</div>
+              {% if booking.resource.opening_time and booking.resource.closing_time %}
+              <div class="form-text">
+                <i class="bi bi-info-circle"></i> Available: {{ booking.resource.opening_time.strftime('%I:%M %p') }} - {{ booking.resource.closing_time.strftime('%I:%M %p') }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="recurrence">
+              <i class="bi bi-arrow-repeat"></i> Recurrence (Optional)
+            </label>
+            <select id="recurrence" name="recurrence" class="form-select">
+              <option value="">None - Single booking</option>
+              <option value="daily" {% if booking.recurrence_pattern == 'daily' %}selected{% endif %}>Daily</option>
+              <option value="weekly" {% if booking.recurrence_pattern == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="monthly" {% if booking.recurrence_pattern == 'monthly' %}selected{% endif %}>Monthly</option>
+            </select>
+            <div class="form-text">Select if you want this booking to repeat.</div>
+          </div>
+
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> 
+            Editing this booking will check for conflicts. If the new time slot is not available, the change will be rejected.
+          </div>
+
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary btn-lg" type="submit">
+              <i class="bi bi-check-circle"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block title %}My Bookings - Campus Resource Hub{% endblock %}
+{% block content %}
+<h2 class="mb-4">
+  <i class="bi bi-calendar-check"></i> My Bookings
+</h2>
+
+<!-- Tabs for Past/Current/Upcoming/Waitlist -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" type="button" role="tab">
+      <i class="bi bi-clock"></i> Upcoming ({{ upcoming_bookings|length }})
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="current-tab" data-bs-toggle="tab" data-bs-target="#current" type="button" role="tab">
+      <i class="bi bi-play-circle"></i> Current ({{ current_bookings|length }})
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="waitlist-tab" data-bs-toggle="tab" data-bs-target="#waitlist" type="button" role="tab">
+      <i class="bi bi-list-ul"></i> Waitlist ({{ waitlist_with_positions|length }})
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="past-tab" data-bs-toggle="tab" data-bs-target="#past" type="button" role="tab">
+      <i class="bi bi-clock-history"></i> Past ({{ past_bookings|length }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Upcoming Bookings -->
+  <div class="tab-pane fade show active" id="upcoming" role="tabpanel">
+    {% if upcoming_bookings %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Resource</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in upcoming_bookings %}
+          <tr>
+            <td>
+              <a href="{{ url_for('resources.detail', resource_id=b.resource_id) }}" class="text-decoration-none fw-bold">
+                {{ b.resource.title }}
+              </a>
+              <br>
+              <small class="text-muted">{{ b.resource.category|title }} • {{ b.resource.location }}</small>
+            </td>
+            <td>{{ b.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ b.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              <span class="badge bg-{{ 'success' if b.status == 'approved' else 'warning' if b.status == 'pending' else 'secondary' }}">
+                {{ b.status|title }}
+              </span>
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}" class="btn btn-sm btn-primary">
+                  <i class="bi bi-eye"></i> View Details
+                </a>
+                {% if b.start_time > now %}
+                <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-danger">
+                    <i class="bi bi-x-circle"></i> Cancel
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-calendar-x display-1 text-muted"></i>
+      <h3 class="mt-3">No upcoming bookings</h3>
+      <p class="text-muted">Start by browsing and booking available resources.</p>
+      <a href="{{ url_for('resources.list_resources') }}" class="btn btn-primary mt-3">
+        <i class="bi bi-search"></i> Browse Resources
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Current Bookings -->
+  <div class="tab-pane fade" id="current" role="tabpanel">
+    {% if current_bookings %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Resource</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in current_bookings %}
+          <tr>
+            <td>
+              <a href="{{ url_for('resources.detail', resource_id=b.resource_id) }}" class="text-decoration-none fw-bold">
+                {{ b.resource.title }}
+              </a>
+              <br>
+              <small class="text-muted">{{ b.resource.category|title }} • {{ b.resource.location }}</small>
+            </td>
+            <td>{{ b.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ b.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-eye"></i> View Details
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-calendar-check display-1 text-muted"></i>
+      <p class="text-muted mt-3">No current bookings</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Waitlist -->
+  <div class="tab-pane fade" id="waitlist" role="tabpanel">
+    {% if waitlist_with_positions %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Resource</th>
+            <th>Desired Start Time</th>
+            <th>Desired End Time</th>
+            <th>Position</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry, position in waitlist_with_positions %}
+          <tr>
+            <td>
+              <a href="{{ url_for('resources.detail', resource_id=entry.resource_id) }}" class="text-decoration-none fw-bold">
+                {{ entry.resource.title }}
+              </a>
+              <br>
+              <small class="text-muted">{{ entry.resource.category|title }} • {{ entry.resource.location }}</small>
+            </td>
+            <td>
+              {% if entry.desired_start %}
+              {{ entry.desired_start.strftime('%Y-%m-%d %H:%M') }}
+              {% else %}
+              <span class="text-muted">Any available time</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if entry.desired_end %}
+              {{ entry.desired_end.strftime('%Y-%m-%d %H:%M') }}
+              {% else %}
+              <span class="text-muted">Any available time</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-info">
+                {% if position == 1 %}
+                First in line
+                {% else %}
+                Position {{ position }}
+                {% endif %}
+              </span>
+            </td>
+            <td>
+              <div class="d-flex gap-2">
+                <a href="{{ url_for('resources.detail', resource_id=entry.resource_id) }}" class="btn btn-sm btn-primary">
+                  <i class="bi bi-eye"></i> View Resource
+                </a>
+                <form method="POST" action="{{ url_for('bookings.cancel_waitlist', waitlist_id=entry.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to remove yourself from the waitlist for {{ entry.resource.title }}?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-danger">
+                    <i class="bi bi-x-circle"></i> Cancel
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-list-ul display-1 text-muted"></i>
+      <h3 class="mt-3">No waitlist entries</h3>
+      <p class="text-muted">You are not currently on any waitlists. When a resource is fully booked, you can join the waitlist and will be automatically notified when a spot becomes available.</p>
+      <a href="{{ url_for('resources.list_resources') }}" class="btn btn-primary mt-3">
+        <i class="bi bi-search"></i> Browse Resources
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Past Bookings -->
+  <div class="tab-pane fade" id="past" role="tabpanel">
+    {% if past_bookings %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Resource</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in past_bookings %}
+          <tr>
+            <td>
+              <a href="{{ url_for('resources.detail', resource_id=b.resource_id) }}" class="text-decoration-none fw-bold">
+                {{ b.resource.title }}
+              </a>
+              <br>
+              <small class="text-muted">{{ b.resource.category|title }} • {{ b.resource.location }}</small>
+            </td>
+            <td>{{ b.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ b.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              <span class="badge bg-{{ 'success' if b.status == 'completed' else 'danger' if b.status == 'cancelled' else 'secondary' }}">
+                {{ b.status|title }}
+              </span>
+            </td>
+            <td>
+              <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-eye"></i> View Details
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-clock-history display-1 text-muted"></i>
+      <p class="text-muted mt-3">No past bookings</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

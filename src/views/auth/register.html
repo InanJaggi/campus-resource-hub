@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Register - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow">
+      <div class="card-body p-4">
+        <h2 class="card-title text-center mb-4">
+          <i class="bi bi-person-plus"></i> Create Account
+        </h2>
+        <form method="post" class="needs-validation" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="mb-3">
+            <label class="form-label" for="name">
+              <i class="bi bi-person"></i> Full Name
+            </label>
+            <input id="name" name="name" class="form-control" placeholder="John Doe" required autofocus>
+            <div class="invalid-feedback">Please provide your name.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="email">
+              <i class="bi bi-envelope"></i> Email Address
+            </label>
+            <input id="email" name="email" type="email" class="form-control" placeholder="your.email@campus.edu" required>
+            <div class="invalid-feedback">Please provide a valid email address.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="role">
+              <i class="bi bi-person-badge"></i> Role
+            </label>
+            <select id="role" name="role" class="form-select" required>
+              <option value="student" selected>Student</option>
+              <option value="staff">Staff</option>
+            </select>
+            <div class="form-text">Select your role on campus.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="password">
+              <i class="bi bi-lock"></i> Password
+            </label>
+            <input id="password" name="password" type="password" class="form-control" placeholder="Create a strong password" required minlength="8" pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$">
+            <div class="invalid-feedback">Password must be at least 8 characters with uppercase, lowercase, and a number.</div>
+            <div class="form-text">
+              <small>Password requirements:</small>
+              <ul class="mb-0 small" id="password-requirements">
+                <li id="req-length" class="text-muted"><i class="bi bi-circle"></i> At least 8 characters</li>
+                <li id="req-uppercase" class="text-muted"><i class="bi bi-circle"></i> One uppercase letter</li>
+                <li id="req-lowercase" class="text-muted"><i class="bi bi-circle"></i> One lowercase letter</li>
+                <li id="req-number" class="text-muted"><i class="bi bi-circle"></i> One number</li>
+                <li id="req-special" class="text-muted"><i class="bi bi-circle"></i> Special character (recommended)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="d-grid">
+            <button class="btn btn-primary btn-lg" type="submit">
+              <i class="bi bi-person-plus"></i> Create Account
+            </button>
+          </div>
+          <div class="text-center mt-3">
+            <p class="text-muted">Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('password');
+    const requirements = {
+        length: document.getElementById('req-length'),
+        uppercase: document.getElementById('req-uppercase'),
+        lowercase: document.getElementById('req-lowercase'),
+        number: document.getElementById('req-number'),
+        special: document.getElementById('req-special')
+    };
+    
+    function updateRequirementStatus(element, isValid) {
+        const icon = element.querySelector('i');
+        if (isValid) {
+            icon.className = 'bi bi-check-circle-fill text-success';
+            element.classList.remove('text-muted');
+            element.classList.add('text-success');
+        } else {
+            icon.className = 'bi bi-circle text-muted';
+            element.classList.remove('text-success');
+            element.classList.add('text-muted');
+        }
+    }
+    
+    function validatePasswordRequirements(password) {
+        const hasLength = password.length >= 8;
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        
+        updateRequirementStatus(requirements.length, hasLength);
+        updateRequirementStatus(requirements.uppercase, hasUppercase);
+        updateRequirementStatus(requirements.lowercase, hasLowercase);
+        updateRequirementStatus(requirements.number, hasNumber);
+        updateRequirementStatus(requirements.special, hasSpecial);
+        
+        // Special character is recommended but not required - show in different color
+        if (hasSpecial) {
+            requirements.special.classList.remove('text-muted');
+            requirements.special.classList.add('text-success');
+        } else {
+            requirements.special.classList.remove('text-success');
+            requirements.special.classList.add('text-warning');
+        }
+    }
+    
+    if (passwordInput) {
+        passwordInput.addEventListener('input', function() {
+            validatePasswordRequirements(this.value);
+        });
+        
+        // Validate on page load if password field has value (e.g., after form error)
+        if (passwordInput.value) {
+            validatePasswordRequirements(passwordInput.value);
+        }
+    }
+});
+</script>
+{% endblock %}
+
+

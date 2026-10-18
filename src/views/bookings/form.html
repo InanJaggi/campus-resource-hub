@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Book {{ resource.title }} - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="mb-4">
+          <i class="bi bi-calendar-check"></i> Book: {{ resource.title }}
+        </h2>
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle"></i> 
+          <strong>Resource Details:</strong><br>
+          <i class="bi bi-geo-alt"></i> Location: {{ resource.location or 'Not specified' }}<br>
+          <i class="bi bi-people"></i> Capacity: {{ resource.capacity }} person{{ 's' if resource.capacity != 1 else '' }}
+          {% if resource.avg_rating > 0 %}
+          <br>
+          <i class="bi bi-star-fill text-warning"></i> Rating: 
+          <span class="text-warning">
+            {% set rating_rounded = resource.avg_rating|round(0, 'floor')|int %}
+            {% for i in range(1, 6) %}
+              {% if i <= rating_rounded %}
+                <i class="bi bi-star-fill"></i>
+              {% elif i == rating_rounded + 1 and resource.avg_rating - rating_rounded >= 0.5 %}
+                <i class="bi bi-star-half"></i>
+              {% else %}
+                <i class="bi bi-star"></i>
+              {% endif %}
+            {% endfor %}
+          </span>
+          {{ "%.1f"|format(resource.avg_rating) }} / 5.0 
+          {% if resource.reviews %}
+          ({{ resource.reviews|length }} review{{ 's' if resource.reviews|length != 1 else '' }})
+          {% endif %}
+          {% endif %}
+        </div>
+        <form method="post" class="needs-validation" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="start">
+                <i class="bi bi-clock"></i> Start Date & Time <span class="text-danger">*</span>
+              </label>
+              <input id="start" name="start" type="datetime-local" class="form-control" step="900" required>
+              <div class="invalid-feedback">Please select a start time.</div>
+              <div class="form-text">Time selection is in 15-minute intervals. Minimum booking duration is 30 minutes.</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="end">
+                <i class="bi bi-clock-history"></i> End Date & Time <span class="text-danger">*</span>
+              </label>
+              <input id="end" name="end" type="datetime-local" class="form-control" step="900" required>
+              <div class="invalid-feedback">Please select an end time.</div>
+              {% if resource.opening_time and resource.closing_time %}
+              <div class="form-text">
+                <i class="bi bi-info-circle"></i> Available: {{ resource.opening_time.strftime('%I:%M %p') }} - {{ resource.closing_time.strftime('%I:%M %p') }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="recurrence">
+              <i class="bi bi-arrow-repeat"></i> Recurrence (Optional)
+            </label>
+            <select id="recurrence" name="recurrence" class="form-select">
+              <option value="">None - Single booking</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <div class="form-text">Select if you want this booking to repeat.</div>
+          </div>
+          {% if resource.booking_type == 'open' %}
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> 
+            <strong>Open Resource:</strong> Your booking will be automatically approved and confirmed immediately.
+          </div>
+          {% else %}
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> 
+            <strong>Restricted Resource:</strong> Your booking request will be pending until approved by the resource owner.
+          </div>
+          {% endif %}
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('resources.detail', resource_id=resource.id) }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary btn-lg" type="submit">
+              <i class="bi bi-calendar-check"></i> 
+              {% if resource.booking_type == 'open' %}
+              Confirm Booking
+              {% else %}
+              Request Booking
+              {% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Reviews Sidebar -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0">
+          <i class="bi bi-star"></i> Reviews
+          {% if resource.reviews %}
+          <span class="badge bg-light text-dark ms-2">{{ resource.reviews|length }}</span>
+          {% endif %}
+        </h5>
+      </div>
+      <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+        {% if resource.reviews %}
+          {% for review in resource.reviews %}
+          <div class="mb-3 pb-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <strong class="small">{{ review.user.name }}</strong>
+                <br>
+                <small class="text-muted">{{ review.created_at.strftime('%b %d, %Y') }}</small>
+              </div>
+              <div class="text-warning">
+                {% for i in range(1, 6) %}
+                  {% if i <= review.rating %}
+                    <i class="bi bi-star-fill"></i>
+                  {% else %}
+                    <i class="bi bi-star"></i>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            {% if review.comment %}
+            <p class="small mb-0">{{ review.comment[:150] }}{% if review.comment|length > 150 %}...{% endif %}</p>
+            {% else %}
+            <p class="small text-muted mb-0"><em>No comment</em></p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center small">No reviews yet. Be the first to review this resource!</p>
+        {% endif %}
+      </div>
+      {% if resource.avg_rating > 0 %}
+      <div class="card-footer bg-light text-center">
+        <strong>Average Rating:</strong>
+        <div class="text-warning mt-1">
+          {% set rating_rounded = resource.avg_rating|round(0, 'floor')|int %}
+          {% for i in range(1, 6) %}
+            {% if i <= rating_rounded %}
+              <i class="bi bi-star-fill"></i>
+            {% elif i == rating_rounded + 1 and resource.avg_rating - rating_rounded >= 0.5 %}
+              <i class="bi bi-star-half"></i>
+            {% else %}
+              <i class="bi bi-star"></i>
+            {% endif %}
+          {% endfor %}
+          <span class="text-dark ms-1">{{ "%.1f"|format(resource.avg_rating) }} / 5.0</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

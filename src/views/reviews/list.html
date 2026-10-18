@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Reviews - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">
+    <i class="bi bi-star"></i> Reviews
+  </h2>
+</div>
+
+<!-- Tabs for Reviewable and Reviewed Resources -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="reviewable-tab" data-bs-toggle="tab" data-bs-target="#reviewable" type="button" role="tab">
+      <i class="bi bi-pencil-square"></i> Resources to Review ({{ reviewable_resources|length }})
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="reviewed-tab" data-bs-toggle="tab" data-bs-target="#reviewed" type="button" role="tab">
+      <i class="bi bi-check-circle"></i> My Reviews ({{ user_reviews|length }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Reviewable Resources -->
+  <div class="tab-pane fade show active" id="reviewable" role="tabpanel">
+    {% if reviewable_resources %}
+    <div class="row" role="list">
+      {% for resource in reviewable_resources %}
+      <div class="col-md-6 col-lg-4 mb-4" role="listitem">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">
+              <a href="{{ url_for('resources.detail', resource_id=resource.id) }}" class="text-decoration-none">
+                {{ resource.title }}
+              </a>
+            </h5>
+            <div class="mb-2">
+              <span class="badge" style="background-color: #990000; color: white;">{{ resource.category|title }}</span>
+              {% if resource.avg_rating > 0 %}
+              <span class="badge bg-warning text-dark">
+                <i class="bi bi-star-fill"></i> {{ "%.1f"|format(resource.avg_rating) }}
+              </span>
+              {% endif %}
+            </div>
+            <div class="small text-muted mb-2">
+              <i class="bi bi-geo-alt"></i> {{ resource.location or 'Location not specified' }}
+            </div>
+            <p class="card-text flex-grow-1">{{ resource.description[:100] }}{% if resource.description|length > 100 %}...{% endif %}</p>
+            <a href="{{ url_for('reviews.new_review', resource_id=resource.id) }}" class="btn btn-primary mt-auto">
+              <i class="bi bi-star"></i> Write Review
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-check-circle display-1 text-muted"></i>
+      <h3 class="mt-3">No resources to review</h3>
+      <p class="text-muted">Complete a booking to review a resource.</p>
+      <a href="{{ url_for('resources.list_resources') }}" class="btn btn-primary mt-3">
+        <i class="bi bi-search"></i> Browse Resources
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Reviewed Resources -->
+  <div class="tab-pane fade" id="reviewed" role="tabpanel">
+    {% if user_reviews %}
+    <div class="row">
+      {% for review in user_reviews %}
+      <div class="col-md-6 mb-4">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title mb-0">
+                <a href="{{ url_for('resources.detail', resource_id=review.resource.id) }}" class="text-decoration-none">
+                  {{ review.resource.title }}
+                </a>
+              </h5>
+              <div class="text-warning">
+                {% for i in range(1, 6) %}
+                  {% if i <= review.rating %}
+                    <i class="bi bi-star-fill"></i>
+                  {% else %}
+                    <i class="bi bi-star"></i>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            <div class="mb-2">
+              <span class="badge" style="background-color: #990000; color: white;">{{ review.resource.category|title }}</span>
+            </div>
+            {% if review.comment %}
+            <p class="card-text">{{ review.comment }}</p>
+            {% else %}
+            <p class="text-muted"><em>No comment provided</em></p>
+            {% endif %}
+            <small class="text-muted">
+              Reviewed on {{ review.created_at.strftime('%B %d, %Y') }}
+            </small>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-star display-1 text-muted"></i>
+      <h3 class="mt-3">No reviews yet</h3>
+      <p class="text-muted">Your reviews will appear here once you submit them.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

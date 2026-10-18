@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Admin Logs - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="mb-0">
+        <i class="bi bi-file-text"></i> Admin Action Logs
+      </h2>
+      <p class="text-muted">Track all administrative actions and changes</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    {% if logs %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Admin</th>
+            <th>Action</th>
+            <th>Target Table</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td>
+              {% set admin_user = log.actor %}
+              {{ admin_user.name if admin_user else 'Unknown' }} (ID: {{ log.actor_id }})
+            </td>
+            <td><span class="badge" style="background-color: #990000; color: white;">{{ log.action }}</span></td>
+            <td>{{ log.target_table or 'N/A' }}</td>
+            <td><small>{{ log.details or 'No details' }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-inbox display-1 text-muted"></i>
+      <p class="text-muted mt-3">No admin logs found</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

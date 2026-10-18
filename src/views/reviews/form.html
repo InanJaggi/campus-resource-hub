@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Review {{ resource.title }} - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="mb-4">
+          <i class="bi bi-star"></i> Review: {{ resource.title }}
+        </h2>
+        <div class="mb-4">
+          <div class="mb-2">
+            <span class="badge" style="background-color: #990000; color: white;">{{ resource.category|title }}</span>
+            <span class="text-muted">• {{ resource.location or 'Location not specified' }}</span>
+          </div>
+          <p class="text-muted">{{ resource.description or 'No description provided.' }}</p>
+        </div>
+        <form method="post" class="needs-validation" novalidate id="review-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="rating" id="rating-value" required>
+          
+          <div class="mb-4">
+            <label class="form-label d-block">
+              <i class="bi bi-star-fill"></i> Rating <span class="text-danger">*</span>
+            </label>
+            <div class="star-rating">
+              {% for i in range(5, 0, -1) %}
+              <input type="radio" id="star{{ i }}" name="rating-radio" value="{{ i }}" class="star-radio" aria-label="{{ i }} star{{ 's' if i != 1 else '' }}">
+              <label for="star{{ i }}" class="star-label" title="{{ i }} star{{ 's' if i != 1 else '' }}">
+                <i class="bi bi-star-fill"></i>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="mt-2">
+              <small class="text-muted" id="rating-text">Click to rate</small>
+            </div>
+            <div class="invalid-feedback">Please select a rating.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label" for="comment">
+              <i class="bi bi-chat-text"></i> Comment (Optional)
+            </label>
+            <textarea id="comment" name="comment" class="form-control" rows="5" placeholder="Share your experience with this resource..."></textarea>
+            <div class="form-text">Tell others about your experience using this resource.</div>
+          </div>
+          
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('reviews.list_reviews') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary" type="submit">
+              <i class="bi bi-check-circle"></i> Submit Review
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.star-rating {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  font-size: 2rem;
+}
+
+.star-radio {
+  display: none;
+}
+
+.star-label {
+  color: #ddd;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.star-label:hover,
+.star-label:hover ~ .star-label {
+  color: #ffc107;
+}
+
+.star-radio:checked ~ .star-label,
+.star-radio:checked ~ .star-label ~ .star-label {
+  color: #ffc107;
+}
+
+.star-rating:has(.star-radio:checked) .star-label {
+  color: #ffc107;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const starRadios = document.querySelectorAll('.star-radio');
+  const ratingValue = document.getElementById('rating-value');
+  const ratingText = document.getElementById('rating-text');
+  const form = document.getElementById('review-form');
+  
+  const ratingLabels = {
+    5: 'Excellent',
+    4: 'Very Good',
+    3: 'Good',
+    2: 'Fair',
+    1: 'Poor'
+  };
+  
+  starRadios.forEach(radio => {
+    radio.addEventListener('change', function() {
+      const value = parseInt(this.value);
+      ratingValue.value = value;
+      ratingText.textContent = value + ' star' + (value !== 1 ? 's' : '') + ' - ' + ratingLabels[value];
+      
+      // Update star colors
+      starRadios.forEach((r, index) => {
+        const label = document.querySelector(`label[for="star${r.value}"]`);
+        if (parseInt(r.value) <= value) {
+          label.style.color = '#ffc107';
+        } else {
+          label.style.color = '#ddd';
+        }
+      });
+    });
+  });
+  
+  form.addEventListener('submit', function(e) {
+    if (!ratingValue.value) {
+      e.preventDefault();
+      ratingText.textContent = 'Please select a rating';
+      ratingText.style.color = '#dc3545';
+      return false;
+    }
+  });
+});
+</script>
+{% endblock %}
+
+

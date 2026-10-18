@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}Edit User - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="mb-0">
+        <i class="bi bi-person-gear"></i> Edit User: {{ user.name }}
+      </h2>
+      <p class="text-muted">Manage user information and settings</p>
+    </div>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left"></i> Back to Users
+    </a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0"><i class="bi bi-pencil"></i> User Information</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="name">
+                <i class="bi bi-person"></i> Full Name <span class="text-danger">*</span>
+              </label>
+              <input id="name" name="name" value="{{ user.name }}" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="email">
+                <i class="bi bi-envelope"></i> Email <span class="text-danger">*</span>
+              </label>
+              <input id="email" name="email" type="email" value="{{ user.email }}" class="form-control" required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="role">
+                <i class="bi bi-person-badge"></i> Role <span class="text-danger">*</span>
+              </label>
+              <select id="role" name="role" class="form-select" required>
+                <option value="student" {% if user.role == 'student' %}selected{% endif %}>Student</option>
+                <option value="staff" {% if user.role == 'staff' %}selected{% endif %}>Staff</option>
+                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label" for="department">
+                <i class="bi bi-building"></i> Department
+              </label>
+              <input id="department" name="department" value="{{ user.department or '' }}" class="form-control" placeholder="Optional">
+            </div>
+          </div>
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- User Activity -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0"><i class="bi bi-activity"></i> User Activity</h5>
+      </div>
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col-md-4">
+            <h4 style="color: #990000;">{{ bookings|length }}</h4>
+            <p class="text-muted mb-0">Total Bookings</p>
+          </div>
+          <div class="col-md-4">
+            <h4 style="color: #990000;">{{ resources|length }}</h4>
+            <p class="text-muted mb-0">Resources Owned</p>
+          </div>
+          <div class="col-md-4">
+            <h4 style="color: #990000;">{{ reviews|length }}</h4>
+            <p class="text-muted mb-0">Reviews Written</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <!-- User Details -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0"><i class="bi bi-info-circle"></i> User Details</h5>
+      </div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-0">
+          <li class="mb-2"><strong>User ID:</strong> {{ user.id }}</li>
+          <li class="mb-2"><strong>Email:</strong> {{ user.email }}</li>
+          <li class="mb-2"><strong>Role:</strong> <span class="badge" style="background-color: #990000; color: white;">{{ user.role|title }}</span></li>
+          <li class="mb-2"><strong>Department:</strong> {{ user.department or 'Not set' }}</li>
+          <li class="mb-2"><strong>Joined:</strong> {{ user.created_at.strftime('%B %d, %Y') }}</li>
+          <li class="mb-0"><strong>Last Updated:</strong> {{ user.updated_at.strftime('%B %d, %Y') }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Recent Bookings -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header" style="background-color: #990000; color: white;">
+        <h5 class="mb-0"><i class="bi bi-calendar"></i> Recent Bookings</h5>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for booking in bookings[:5] %}
+        <li class="list-group-item">
+          <small>
+            <strong>{{ booking.resource.title }}</strong><br>
+            {{ booking.start_time.strftime('%m/%d/%Y %I:%M %p') }}<br>
+            <span class="badge bg-{{ 'success' if booking.status == 'approved' else 'warning' if booking.status == 'pending' else 'secondary' }}">{{ booking.status }}</span>
+          </small>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted text-center">No bookings</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

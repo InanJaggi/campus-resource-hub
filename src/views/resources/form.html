@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if resource else 'New' }} Resource - Campus Resource Hub{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="mb-4">
+          <i class="bi bi-{{ 'pencil' if resource else 'plus-circle' }}"></i> 
+          {{ 'Edit' if resource else 'Create New' }} Resource
+        </h2>
+        <form method="post" class="needs-validation" novalidate enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          
+          <!-- Basic Information -->
+          <div class="mb-3">
+            <label class="form-label" for="title">
+              <i class="bi bi-type"></i> Title <span class="text-danger">*</span>
+            </label>
+            <input id="title" name="title" value="{{ resource.title if resource else '' }}" class="form-control" required placeholder="e.g., Study Room 101">
+            <div class="invalid-feedback">Please provide a title.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label" for="description">
+              <i class="bi bi-card-text"></i> Description
+            </label>
+            <textarea id="description" name="description" class="form-control" rows="4" placeholder="Describe the resource, its features, and any special requirements...">{{ resource.description if resource else '' }}</textarea>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label" for="category">
+                <i class="bi bi-tag"></i> Category <span class="text-danger">*</span>
+              </label>
+              <select id="category" name="category" class="form-select" required>
+                <option value="general" {% if not resource or resource.category == 'general' %}selected{% endif %}>General</option>
+                <option value="study" {% if resource and resource.category == 'study' %}selected{% endif %}>Study Room</option>
+                <option value="av" {% if resource and resource.category == 'av' %}selected{% endif %}>AV Equipment</option>
+                <option value="space" {% if resource and resource.category == 'space' %}selected{% endif %}>Event Space</option>
+                <option value="lab" {% if resource and resource.category == 'lab' %}selected{% endif %}>Lab Equipment</option>
+                <option value="tutoring" {% if resource and resource.category == 'tutoring' %}selected{% endif %}>Tutoring</option>
+              </select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label" for="location">
+                <i class="bi bi-geo-alt"></i> Location
+              </label>
+              <input id="location" name="location" value="{{ resource.location if resource else '' }}" class="form-control" placeholder="e.g., Building A, Room 201">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label" for="capacity">
+                <i class="bi bi-people"></i> Capacity
+              </label>
+              <input id="capacity" name="capacity" type="number" min="1" value="{{ resource.capacity if resource else 1 }}" class="form-control" required>
+            </div>
+          </div>
+          
+          <!-- Lab Equipment Fields -->
+          <div id="lab-fields" class="category-specific-fields" style="display: none;">
+            <h5 class="mt-4 mb-3 text-primary">
+              <i class="bi bi-tools"></i> Lab Equipment Details
+            </h5>
+            <div class="mb-3">
+              <label class="form-label" for="model">
+                <i class="bi bi-box"></i> Model
+              </label>
+              <input id="model" name="model" value="{{ resource.model if resource else '' }}" class="form-control" placeholder="e.g., Dell Latitude 5520, MacBook Pro M1">
+              <div class="form-text">Enter the model name/number of the equipment</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="equipment_included">
+                <i class="bi bi-check2-square"></i> Equipment Included
+              </label>
+              <textarea id="equipment_included" name="equipment_included" class="form-control" rows="3" placeholder="e.g., Laptop, Charger, Mouse, Carrying Case">{{ resource.equipment_included if resource else '' }}</textarea>
+              <div class="form-text">List all items that come with this equipment</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="specifications">
+                <i class="bi bi-cpu"></i> Specifications
+              </label>
+              <textarea id="specifications" name="specifications" class="form-control" rows="3" placeholder="e.g., 16GB RAM, 512GB SSD, Intel i7, Windows 11">{{ resource.specifications if resource else '' }}</textarea>
+              <div class="form-text">Technical specifications and details</div>
+            </div>
+          </div>
+          
+          <!-- AV Equipment Fields -->
+          <div id="av-fields" class="category-specific-fields" style="display: none;">
+            <h5 class="mt-4 mb-3 text-primary">
+              <i class="bi bi-camera-video"></i> AV Equipment Details
+            </h5>
+            <div class="mb-3">
+              <label class="form-label" for="av_model">
+                <i class="bi bi-box"></i> Model
+              </label>
+              <input id="av_model" name="model" value="{{ resource.model if resource else '' }}" class="form-control" placeholder="e.g., Canon EOS R5, Sony A7III">
+              <div class="form-text">Enter the model name/number of the equipment</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="av_equipment_included">
+                <i class="bi bi-check2-square"></i> Equipment Included
+              </label>
+              <textarea id="av_equipment_included" name="equipment_included" class="form-control" rows="3" placeholder="e.g., Camera, Lens, Battery, Memory Card, Tripod">{{ resource.equipment_included if resource else '' }}</textarea>
+              <div class="form-text">List all items that come with this equipment</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="av_connectivity">
+                <i class="bi bi-usb-plug"></i> Connectivity
+              </label>
+              <input id="av_connectivity" name="connectivity" value="{{ resource.connectivity if resource else '' }}" class="form-control" placeholder="e.g., HDMI, USB-C, Wi-Fi, Bluetooth">
+              <div class="form-text">Connection types and ports available</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="av_specifications">
+                <i class="bi bi-cpu"></i> Specifications
+              </label>
+              <textarea id="av_specifications" name="specifications" class="form-control" rows="3" placeholder="e.g., 4K Video, 24MP Sensor, Image Stabilization">{{ resource.specifications if resource else '' }}</textarea>
+              <div class="form-text">Technical specifications and features</div>
+            </div>
+          </div>
+          
+          <!-- Study Room Fields -->
+          <div id="study-fields" class="category-specific-fields" style="display: none;">
+            <h5 class="mt-4 mb-3 text-primary">
+              <i class="bi bi-book"></i> Study Room Details
+            </h5>
+            <div class="mb-3">
+              <label class="form-label" for="seating_type">
+                <i class="bi bi-person-chair"></i> Seating Type
+              </label>
+              <select id="seating_type" name="seating_type" class="form-select">
+                <option value="">Select seating type</option>
+                <option value="desks" {% if resource and resource.seating_type == 'desks' %}selected{% endif %}>Individual Desks</option>
+                <option value="tables" {% if resource and resource.seating_type == 'tables' %}selected{% endif %}>Tables</option>
+                <option value="comfortable" {% if resource and resource.seating_type == 'comfortable' %}selected{% endif %}>Comfortable Seating</option>
+                <option value="mixed" {% if resource and resource.seating_type == 'mixed' %}selected{% endif %}>Mixed Seating</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="has_whiteboard" name="has_whiteboard" {% if resource and resource.has_whiteboard %}checked{% endif %}>
+                <label class="form-check-label" for="has_whiteboard">
+                  <i class="bi bi-square"></i> Has Whiteboard
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="has_projector" name="has_projector" {% if resource and resource.has_projector %}checked{% endif %}>
+                <label class="form-check-label" for="has_projector">
+                  <i class="bi bi-projector"></i> Has Projector
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="study_amenities">
+                <i class="bi bi-star"></i> Amenities
+              </label>
+              <textarea id="study_amenities" name="amenities" class="form-control" rows="3" placeholder="e.g., WiFi, Power Outlets, Window, Quiet Zone">{{ resource.amenities if resource else '' }}</textarea>
+              <div class="form-text">List available amenities and features</div>
+            </div>
+          </div>
+          
+          <!-- Event Space Fields -->
+          <div id="space-fields" class="category-specific-fields" style="display: none;">
+            <h5 class="mt-4 mb-3 text-primary">
+              <i class="bi bi-calendar-event"></i> Event Space Details
+            </h5>
+            <div class="mb-3">
+              <label class="form-label" for="space_amenities">
+                <i class="bi bi-star"></i> Amenities
+              </label>
+              <textarea id="space_amenities" name="amenities" class="form-control" rows="3" placeholder="e.g., Stage, Sound System, Lighting, Restrooms, Parking">{{ resource.amenities if resource else '' }}</textarea>
+              <div class="form-text">List available amenities and features</div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="space_has_projector" name="has_projector" {% if resource and resource.has_projector %}checked{% endif %}>
+                <label class="form-check-label" for="space_has_projector">
+                  <i class="bi bi-projector"></i> Has Projector/Screen
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="setup_options">
+                <i class="bi bi-layout-text-window"></i> Setup Options
+              </label>
+              <textarea id="setup_options" name="setup_options" class="form-control" rows="3" placeholder="e.g., Theater style, Classroom style, Banquet style, Conference table">{{ resource.setup_options if resource else '' }}</textarea>
+              <div class="form-text">Available room setup configurations</div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="catering_allowed" name="catering_allowed" {% if resource and resource.catering_allowed %}checked{% endif %}>
+                <label class="form-check-label" for="catering_allowed">
+                  <i class="bi bi-cup"></i> Catering Allowed
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tutoring Fields -->
+          <div id="tutoring-fields" class="category-specific-fields" style="display: none;">
+            <h5 class="mt-4 mb-3 text-primary">
+              <i class="bi bi-mortarboard"></i> Tutoring Details
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="subject">
+                  <i class="bi bi-book"></i> Subject
+                </label>
+                <input id="subject" name="subject" value="{{ resource.subject if resource else '' }}" class="form-control" placeholder="e.g., Mathematics, Computer Science, Biology">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="level">
+                  <i class="bi bi-bar-chart"></i> Level
+                </label>
+                <select id="level" name="level" class="form-select">
+                  <option value="">Select level</option>
+                  <option value="beginner" {% if resource and resource.level == 'beginner' %}selected{% endif %}>Beginner</option>
+                  <option value="intermediate" {% if resource and resource.level == 'intermediate' %}selected{% endif %}>Intermediate</option>
+                  <option value="advanced" {% if resource and resource.level == 'advanced' %}selected{% endif %}>Advanced</option>
+                  <option value="all" {% if resource and resource.level == 'all' %}selected{% endif %}>All Levels</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="duration">
+                <i class="bi bi-clock"></i> Session Duration
+              </label>
+              <select id="duration" name="duration" class="form-select">
+                <option value="">Select duration</option>
+                <option value="30min" {% if resource and resource.duration == '30min' %}selected{% endif %}>30 minutes</option>
+                <option value="1hr" {% if resource and resource.duration == '1hr' %}selected{% endif %}>1 hour</option>
+                <option value="1.5hr" {% if resource and resource.duration == '1.5hr' %}selected{% endif %}>1.5 hours</option>
+                <option value="2hr" {% if resource and resource.duration == '2hr' %}selected{% endif %}>2 hours</option>
+                <option value="flexible" {% if resource and resource.duration == 'flexible' %}selected{% endif %}>Flexible</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="online_available" name="online_available" {% if resource and resource.online_available %}checked{% endif %}>
+                <label class="form-check-label" for="online_available">
+                  <i class="bi bi-camera-video"></i> Online Sessions Available
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Image Upload -->
+          <div class="mb-3">
+            <label class="form-label" for="image">
+              <i class="bi bi-image"></i> Resource Image
+            </label>
+            {% if resource and resource.images %}
+            <div class="mb-2">
+              <img src="{{ url_for('static', filename=resource.images) }}" alt="Current image" class="img-thumbnail" style="max-height: 200px; max-width: 300px;">
+              <div class="form-text">Current image. Upload a new image to replace it.</div>
+            </div>
+            {% endif %}
+            <input type="file" id="image" name="image" class="form-control" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+            <div class="form-text">Upload an image for this resource (PNG, JPG, JPEG, GIF, WEBP, max 10MB)</div>
+          </div>
+          
+          <!-- Status -->
+          <div class="mb-3">
+            <label class="form-label" for="status">
+              <i class="bi bi-check-circle"></i> Status
+            </label>
+            <select id="status" name="status" class="form-select">
+              {% set st = (resource.status if resource else 'published') %}
+              <option value="draft" {% if st == 'draft' %}selected{% endif %}>Draft</option>
+              <option value="published" {% if st == 'published' %}selected{% endif %}>Published</option>
+              <option value="archived" {% if st == 'archived' %}selected{% endif %}>Archived</option>
+            </select>
+            <div class="form-text">Published resources are visible to all users.</div>
+          </div>
+          
+          <!-- Booking Type -->
+          <div class="mb-3">
+            <label class="form-label" for="booking_type">
+              <i class="bi bi-shield-check"></i> Booking Type
+            </label>
+            <select id="booking_type" name="booking_type" class="form-select" required>
+              {% set bt = (resource.booking_type if resource else 'restricted') %}
+              <option value="open" {% if bt == 'open' %}selected{% endif %}>Open - No approval required</option>
+              <option value="restricted" {% if bt == 'restricted' %}selected{% endif %}>Restricted - Requires owner approval</option>
+            </select>
+            <div class="form-text">
+              <strong>Open:</strong> Bookings are automatically approved. <strong>Restricted:</strong> Bookings require approval from the resource owner.
+            </div>
+          </div>
+          
+          <!-- Hours of Operation -->
+          <div class="mb-3">
+            <h5 class="mb-3">
+              <i class="bi bi-clock"></i> Hours of Operation
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="opening_time">
+                  <i class="bi bi-sunrise"></i> Opening Time
+                </label>
+                <input id="opening_time" name="opening_time" type="time" 
+                       value="{{ resource.opening_time.strftime('%H:%M') if resource and resource.opening_time else '07:00' }}" 
+                       class="form-control" step="900">
+                <div class="form-text">When this resource becomes available each day (optional). Leave empty for 24/7 availability.</div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="closing_time">
+                  <i class="bi bi-sunset"></i> Closing Time
+                </label>
+                <input id="closing_time" name="closing_time" type="time" 
+                       value="{{ resource.closing_time.strftime('%H:%M') if resource and resource.closing_time else '23:59' }}" 
+                       class="form-control" step="900">
+                <div class="form-text">When this resource closes each day (optional). Leave empty for 24/7 availability.</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('resources.list_resources') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary" type="submit">
+              <i class="bi bi-save"></i> {{ 'Update' if resource else 'Create' }} Resource
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const categorySelect = document.getElementById('category');
+  const categoryFields = {
+    'lab': document.getElementById('lab-fields'),
+    'av': document.getElementById('av-fields'),
+    'study': document.getElementById('study-fields'),
+    'space': document.getElementById('space-fields'),
+    'tutoring': document.getElementById('tutoring-fields')
+  };
+  
+  function toggleCategoryFields() {
+    // Hide all category-specific fields
+    Object.values(categoryFields).forEach(field => {
+      if (field) field.style.display = 'none';
+    });
+    
+    // Show fields for selected category
+    const selectedCategory = categorySelect.value;
+    if (categoryFields[selectedCategory]) {
+      categoryFields[selectedCategory].style.display = 'block';
+    }
+  }
+  
+  // Initial toggle on page load
+  toggleCategoryFields();
+  
+  // Toggle on category change
+  categorySelect.addEventListener('change', toggleCategoryFields);
+});
+</script>
+
+<style>
+.category-specific-fields {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #dee2e6;
+  margin-top: 1rem;
+}
+
+.category-specific-fields h5 {
+  color: #990000;
+  border-bottom: 2px solid #990000;
+  padding-bottom: 0.5rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,61 @@
+================================================================================
+                    PRODUCT REQUIREMENTS DOCUMENT (PRD)
+                         Campus Resource Hub v1.0
+================================================================================
+
+OBJECTIVE
+---------
+Create a centralized web platform enabling students, staff, and administrators to discover, 
+book, and manage campus resources (study rooms, AV equipment, event spaces, tutoring, lab 
+instruments) through an intuitive, accessible booking system with automated conflict detection, 
+role-based access control, and AI-powered assistance.
+
+STAKEHOLDERS
+------------
+Primary:
+• Students: Browse and book resources
+• Staff: Create/manage resources, approve bookings
+• Administrators: System oversight, user management, analytics
+Secondary:
+• IT Department: Maintenance, security
+• Campus Facilities: Inventory
+• Academic Departments: Allocation
+
+NON-GOALS (Out of Scope)
+------------------------
+• Mobile native apps (iOS/Android)
+• Payment processing or billing
+• Third-party calendar sync
+• Real-time video/audio communication
+• Social media integration or OAuth
+• Multi-campus/multi-tenant architecture
+• Advanced analytics/BI dashboards
+• External API beyond MCP read-only
+• Automated maintenance scheduling
+• Physical access control integration
+
+CORE FEATURES
+-------------
+1. User Management & Authentication: Role-based access (Student, Staff, Admin), user profiles
+2. Resource Management: CRUD with draft/published/archived status, categories (Study Rooms, AV, 
+   Event Spaces, Lab Equipment, Tutoring)
+3. Search & Discovery: Keyword search, filtering (category, location, capacity, rating, 
+   availability), sorting (recent, most booked, top rated)
+4. Booking & Scheduling: Calendar/form views, automatic conflict detection, approval workflow 
+   (Open/Restricted), recurring bookings, 30-min minimum, 15-min intervals
+5. Waitlist System: Auto-enrollment on conflicts, promotion on cancellation, notifications
+6. Messaging System: Thread-based messaging, unread counts, contact information access
+7. Reviews & Ratings: Post-booking 1-5 star ratings, aggregate display, public visibility
+8. Admin Panel: User management, booking moderation, statistics dashboard, audit logs
+9. AI-Powered Features: Gemini chatbot, context-aware UI highlighting, interactive tutorials
+10. Accessibility: WCAG 2.1 AA compliance (semantic HTML, ARIA, keyboard navigation)
+
+SUCCESS METRICS
+---------------
+• User Adoption: 80% student registration (first semester), 60% monthly active users, 3+ bookings/user/semester
+• Operational Efficiency: 50% reduction in manual coordination, 90% automated processing, <2hr approval time
+• System Performance: 99% uptime (8 AM-10 PM), <2s page load (95% requests), zero data loss
+• User Satisfaction: ≥4.0/5.0 average rating, 70% rate "easy to use" (4+ stars), <5% cancellation due to error
+• Resource Utilization: 30% increase vs. manual system, ≥40% waitlist conversion
+• Technical Quality: Zero critical vulnerabilities, 80%+ test coverage, WCAG 2.1 AA compliance
+
