@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from src.app import create_app
 from src.extensions import db, bcrypt
 from src.models.models import User, Resource, Booking, Waitlist
@@ -15,7 +15,6 @@ def app():
     })
     with app.app_context():
         db.create_all()
-        from datetime import time
         owner = User(email="owner@example.com", name="Owner", role="staff", password_hash=bcrypt.generate_password_hash("x").decode())
         db.session.add(owner)
         db.session.flush()
@@ -43,14 +42,14 @@ def client(app):
 
 def test_waitlist_enroll_and_promotion(app, client):
     # student A books and gets approved by owner
-    client.post("/auth/register", data={"name": "A", "email": "a@example.com", "password": "a", "csrf_token": ""}, follow_redirects=True)
-    client.post("/auth/login", data={"email": "a@example.com", "password": "a", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/register", data={"name": "A", "email": "a@example.com", "password": "StudentA123", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/login", data={"email": "a@example.com", "password": "StudentA123", "csrf_token": ""}, follow_redirects=True)
     with app.app_context():
         res = Resource.query.filter_by(title="Lab Scope").first()
     
-    # Round to 15-minute intervals and ensure minimum 30 minutes
-    now = datetime.utcnow()
-    start = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    # Two days out at 10:00: always in the future (the app compares against utcnow)
+    # and inside the resource's 7:00-23:59 operating hours
+    start = datetime.combine(datetime.utcnow().date() + timedelta(days=2), time(10, 0))
     end = start + timedelta(hours=1)  # 1 hour booking
     
     start_str = start.strftime("%Y-%m-%dT%H:%M")
@@ -69,8 +68,8 @@ def test_waitlist_enroll_and_promotion(app, client):
 
     # student B tries overlapping and should be waitlisted
     client.get("/auth/logout", follow_redirects=True)
-    client.post("/auth/register", data={"name": "B", "email": "b@example.com", "password": "b", "csrf_token": ""}, follow_redirects=True)
-    client.post("/auth/login", data={"email": "b@example.com", "password": "b", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/register", data={"name": "B", "email": "b@example.com", "password": "StudentB123", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/login", data={"email": "b@example.com", "password": "StudentB123", "csrf_token": ""}, follow_redirects=True)
     r = client.post(f"/bookings/new/{res.id}", data={
         "start": start_str, 
         "end": end_str,
@@ -82,7 +81,7 @@ def test_waitlist_enroll_and_promotion(app, client):
 
     # Student A cancels their approved booking; waitlisted student B should get a pending booking
     client.get("/auth/logout", follow_redirects=True)
-    client.post("/auth/login", data={"email": "a@example.com", "password": "a", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/login", data={"email": "a@example.com", "password": "StudentA123", "csrf_token": ""}, follow_redirects=True)
     with app.app_context():
         from src.models.models import User
         user_a = User.query.filter_by(email="a@example.com").first()

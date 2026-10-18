@@ -43,17 +43,17 @@ def client(app):
 
 def test_conflict_detection(app, client):
     # register + login as student
-    client.post("/auth/register", data={"name": "Bob", "email": "bob@example.com", "password": "pwd", "csrf_token": ""}, follow_redirects=True)
-    client.post("/auth/login", data={"email": "bob@example.com", "password": "pwd", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/register", data={"name": "Bob", "email": "bob@example.com", "password": "BobPass123", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/login", data={"email": "bob@example.com", "password": "BobPass123", "csrf_token": ""}, follow_redirects=True)
 
     # get resource id
     from src.models.models import Resource
     with app.app_context():
         resource = Resource.query.filter_by(title="Room 101").first()
 
-    # Round to 15-minute intervals
-    now = datetime.utcnow()
-    start = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    # Two days out at 10:00: always in the future (the app compares against utcnow)
+    # and inside the resource's 7:00-23:59 operating hours
+    start = datetime.combine(datetime.utcnow().date() + timedelta(days=2), time(10, 0))
     end = start + timedelta(hours=2)
 
     # Format for form input (datetime-local format)
@@ -78,7 +78,7 @@ def test_conflict_detection(app, client):
 
     # new overlapping booking should be rejected at creation time
     client.get("/auth/logout", follow_redirects=True)
-    client.post("/auth/login", data={"email": "bob@example.com", "password": "pwd", "csrf_token": ""}, follow_redirects=True)
+    client.post("/auth/login", data={"email": "bob@example.com", "password": "BobPass123", "csrf_token": ""}, follow_redirects=True)
     
     # Overlapping time (30 minutes into the first booking)
     overlap_start = start + timedelta(minutes=30)

@@ -27,15 +27,16 @@ def test_register_login_and_protected(app, client):
         "name": "Alice",
         "email": "alice@example.com",
         "role": "student",
-        "password": "password123",
+        "password": "Password123",  # meets the register password policy
         "csrf_token": ""  # CSRF disabled in test config
     }, follow_redirects=True)
     assert r.status_code == 200
+    assert b"Registration successful" in r.data
 
     # login
     r = client.post("/auth/login", data={
         "email": "alice@example.com",
-        "password": "password123",
+        "password": "Password123",
         "csrf_token": ""  # CSRF disabled in test config
     }, follow_redirects=True)
     assert r.status_code == 200
