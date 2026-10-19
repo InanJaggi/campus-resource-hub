@@ -62,7 +62,7 @@ python src/app.py
 ### Step 1: Clone the Project
 
 ```bash
-git clone https://github.com/InanJ1/campus-resource-hub.git
+git clone https://github.com/Ij376/campus-resource-hub.git
 cd campus-resource-hub
 ```
 
