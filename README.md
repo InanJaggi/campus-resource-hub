@@ -1,5 +1,7 @@
 # Campus Resource Hub (AiDD 2025 Capstone)
 
+[![tests](https://github.com/InanJaggi/campus-resource-hub/actions/workflows/tests.yml/badge.svg)](https://github.com/InanJaggi/campus-resource-hub/actions/workflows/tests.yml)
+
 A Flask-based MVC web application for listing, sharing, and reserving campus resources (study rooms, AV equipment, event spaces, tutoring sessions, lab instruments). Includes search, booking with conflict detection, messaging, reviews/ratings, role-based access, and admin panel. Optional: waitlist and MCP (Model Context Protocol) AI integration.
 
 Built by a four-person team (AiDD Team 12) at Indiana University's Kelley School of Business in fall 2025. Inan Jaggi was the project lead. See [Credits](#credits).
